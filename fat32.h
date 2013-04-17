@@ -85,7 +85,18 @@ typedef struct fat_direntry {
     uint16_t            mod_date;
     uint16_t            low_clu;
     uint32_t            size;
-}__attribute((packed)) fat_direntry_t;
+}__attribute__((packed)) fat_direntry_t;
+
+typedef struct fat_long_direntry {
+    unsigned char       order;
+    unsigned short      charset1[5];
+    unsigned char       attribute;
+    unsigned char       type;
+    unsigned char       checksum;
+    unsigned short      charset2[6];
+    unsigned short      zero;
+    unsigned short       charset3[2];
+}__attribute__((packed)) fat_long_direntry_t;
 
 typedef struct DskSiztoSecPerClus {
     uint32_t            DiskSize;
@@ -107,8 +118,9 @@ extern DskSiztoSecPerClus_t DskTableFAT16[];
 extern DskSiztoSecPerClus_t DskTableFAT32[];
 
 /* Functions */
-int fat32_init(int dev); //const char *filename);
+int fat32_init(int dev);
 int fat32_read(void *buffer, int count);
 int fat32_write(int device, const void* buffer, int count);
+int fat32_readdir(int dev, const char* path);
 int fat32_teardown();
 #endif

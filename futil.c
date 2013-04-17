@@ -12,8 +12,8 @@ fileinfo_t *filetable[FILE_LIMIT];
 int next_file_pos = 0;
 
 fs_table_t fs_table[] = {
-    {fat32_init, fat32_read, fat32_write, fat32_teardown},
-    {fat32_init, fat32_read, fat32_write, fat32_teardown}
+    {fat32_init, fat32_read, fat32_write, fat32_readdir, fat32_teardown},
+    {fat32_init, fat32_read, fat32_write, fat32_readdir, fat32_teardown}
 };
 
 mount_t *mount_table[MOUNT_LIMIT];
@@ -54,23 +54,41 @@ void unmount_fs(const char *mount_point) {
     }
 }
 
-int fileopen(const char *fname) {
-    fileinfo_t *newfile = calloc(1, sizeof(fileinfo_t));
-    newfile->name = calloc(strlen(fname), sizeof(char));
-    strncpy(newfile->name, fname, strlen(fname));
-    // determine which device the file will reside on
+/*
+ * Matches the path name to the actual mount point
+ *
+ * @param   path        Absolute path to the file
+ * 
+ * @return  Integer cooresponding to the position in the 
+ *          file mount table
+ */
+int get_device(const char *path) {
     int best_match = -1;
     int highest_char_match = -1;
     for (int i = 0; i < MOUNT_LIMIT; i++) {
         if (mount_table[i] != NULL) {
             int match_count = 0;
             for (int j = 0; j < strlen(mount_table[i]->path); j++) {
-                if (mount_table[i]->path[j] == fname[j]) ++match_count;
+                if (mount_table[i]->path[j] == path[j]) ++match_count;
             }
             if (match_count > highest_char_match) {highest_char_match = match_count; best_match = i;};
         }
     }
-    newfile->device = best_match;
+    return best_match;
+}
+
+int opendir(const char *path) {
+    int device = get_device(path);
+    mount_t *mp = mount_table[device];
+    fs_table[mp->fs_type].readdir(device, path);
+    return 0;
+}
+
+int fileopen(const char *fname) {
+    fileinfo_t *newfile = calloc(1, sizeof(fileinfo_t));
+    newfile->name = calloc(strlen(fname), sizeof(char));
+    strncpy(newfile->name, fname, strlen(fname));
+    newfile->device = get_device(fname);
     filetable[next_file_pos] = newfile;
     
     ++next_file_pos;

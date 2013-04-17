@@ -102,10 +102,16 @@ int fat32_read(void *buffer, int count) {
     return 0;
 }
 
-int get_sector_location(fat_t *fat, int cluster) {
-    int fatoffset = fat->fs_type == FAT16 ? cluster * 2 : cluster * 4;
-    int fatsector = fat->bs->reserved_sector_count + (fatoffset / fat->bs->bytes_per_sector);
-    return fatsector;
+/*
+ * Compute the byte offset from SEEK_SET of a given cluster
+ * 
+ * @param   fat             FAT Information Struct containing necessary values to compute location
+ * @param   cluster         Relative cluster in the data section
+ *
+ * @return  Offset in bytes from SEEK_SET of this cluster
+ */
+inline static int get_cluster_location(fat_t *fat, int cluster) {
+    return (fat->data_sect + (fat->bs->sectors_per_cluster * (cluster - 2))) * fat->bs->bytes_per_sector;
 }
 
 /* 
@@ -166,10 +172,95 @@ unsigned int write_fat_table(int device, fat_t* fat, unsigned int cluster, unsig
     return cluster;
 }
 
-int fat32_write(int dev, const void* buffer, int count) {
+char * process_long_entry(int device, fat_long_direntry_t *ent) {
+    
+    char *str;
+    int seq = 0;
+    if ((ent->order & 0x40) != 0x40) {
+        printf("[FAT32]: Not Start of Long Filename. Skipping\n");
+        return NULL;
+    }
+    
+    seq = ent->order & 0x9F;
+    int num_char = seq * 13;
+    str = calloc(num_char, sizeof(char));    
+    num_char--;
+    
+    for (int i = seq; i > 0; i--) {    
+        str[num_char--] = (char)(ent->charset3[2]);
+        str[num_char--] = (char)(ent->charset3[1]);
+        str[num_char--] = (char)(ent->charset2[5]);
+        str[num_char--] = (char)(ent->charset2[4]);
+        str[num_char--] = (char)(ent->charset2[3]);
+        str[num_char--] = (char)(ent->charset2[2]);
+        str[num_char--] = (char)(ent->charset2[1]);
+        str[num_char--] = (char)(ent->charset2[0]);
+        str[num_char--] = (char)(ent->charset1[4]);
+        str[num_char--] = (char)(ent->charset1[3]);
+        str[num_char--] = (char)(ent->charset1[2]);
+        str[num_char--] = (char)(ent->charset1[1]);
+        str[num_char--] = (char)(ent->charset1[0]);
+        
+        if (seq != 1) {
+            // Read the next long entry and continue processing
+            read(device, ent, 32);
+        }
+    }
+    
+    return str;
+}
+
+void read_dir_entry(int device, fat_t *fat, unsigned int cluster) {
+
+    int offset = get_cluster_location(fat, cluster);
+    lseek(device, offset, SEEK_SET);
+
+    char *filename;
+    while(1) {
+        unsigned char buff[32];
+        int nr = read(device, buff, 32);
+        if ((   nr < 32) != 0) {
+            printf("[FAT32] Error reading directory\n");
+            return;
+        }
+        if (buff[0] == 0x00) break;
+        if (buff[11] == 0x0F) {
+            filename = process_long_entry(device, (fat_long_direntry_t*)buff);
+        } else {
+            /* Regular Entry */
+            fat_direntry_t *dir = (fat_direntry_t*)buff;
+            
+            switch (dir->attributes) {
+                case 0x02:
+                case 0x08:
+                case 0x40:
+                    break;
+                default:
+                    //printf("%s\n", (filename != NULL ? filename : dir->name));
+                    if (filename != NULL) { printf("%s\n", filename); free(filename); filename = NULL; }
+                    else { printf("%s\n", dir->name); }
+            }
+        }
+    }
+}
+
+int fat32_readdir(int dev, const char* path) {
     /* Get the FAT Information from the table of open mounted FATs */
     fat_t *fat = fat_table[dev];
     
+    /* Open Device */
+    int device = open(mount_table[dev]->device_name, O_RDWR);
+    int rootdir = fat->fs_type == FAT16 ? 
+        fat->bs->reserved_sector_count + (fat->bs->table_count * fat->bs->total_sectors_16) : 
+        ((fat_extBS_32_t*)fat->bs->extended_section)->root_cluster;    
+        
+    read_dir_entry(device, fat, rootdir);
+    return 0;
+}
+
+int fat32_write(int dev, const void* buffer, int count) {
+    /* Get the FAT Information from the table of open mounted FATs */
+    fat_t *fat = fat_table[dev];
     
     /* Determine # of clusters needed */
     int clusize = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
@@ -179,17 +270,32 @@ int fat32_write(int dev, const void* buffer, int count) {
     /* Open Device */
     int device = open(mount_table[dev]->device_name, O_RDWR);
     
-    int cluster = fat->info->last_alloc;
-    int filled_clusters = 0;
+    /* Build CLuster Chain */
+    unsigned int first_cluster = 0;
+    unsigned int last_cluster = 0;
+    unsigned int cluster = fat->info->last_alloc;
+    unsigned int filled_clusters = 0;
     while (filled_clusters < clusters_needed) {
         ++cluster;
         /* Find an empty cluster */        
         while (read_fat_table(device, fat, cluster) >= 0x0FFFFFF7) ++cluster;
 
         printf("Found free cluster [%d]\n", cluster);
-        write_fat_table(device, fat, cluster, 0x0FFFFFFF);
+        if (filled_clusters > 0) write_fat_table(device, fat, last_cluster, cluster);
+        else first_cluster = cluster;
+        last_cluster = cluster;
         ++filled_clusters;
     }
+    write_fat_table(device, fat, last_cluster, 0x0FFFFFFF);
+    
+    /* Update Directory Table */
+    int rootdir = fat->fs_type == FAT16 ? 
+        fat->bs->reserved_sector_count + (fat->bs->table_count * fat->bs->total_sectors_16) : 
+        ((fat_extBS_32_t*)fat->bs->extended_section)->root_cluster;    
+    fat_direntry_t *direntry;
+    
+    read_dir_entry(device, fat, rootdir);
+    
     close(device);
     return 0;
 }

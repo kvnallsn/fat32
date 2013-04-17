@@ -11,7 +11,6 @@ typedef struct arg_info_s {
 } arg_info_t;
 
 arg_info_t tokenize(char *input) {
-    printf("Tokenizing: %s\n", input);
     int num_cmds = 2;
     for (int i = 0; i < strlen(input); i++) {
         if (input[i] == ' ') ++num_cmds;
@@ -56,7 +55,11 @@ void umount(arg_info_t args) {
 }
 
 void ls(arg_info_t args) {
-
+    if (args.argc != 0) {
+        printf("usage: ls\n");
+        return;
+    }
+    opendir("/");   
 }
 
 void touch(arg_info_t args) {
@@ -75,8 +78,8 @@ int main(int argc, char **argv) {
     char *input;
     
     /* Temporarily auto mount hello */
-    mount_fs("hello", "/");
-    //mount_fs("/dev/sde1", "/");
+    //mount_fs("hello", "/");
+    mount_fs("/dev/sde1", "/");
     
     while (1) {
         printf("> ");
@@ -94,7 +97,7 @@ int main(int argc, char **argv) {
             } else if(strcmp(cmd, "umount") == 0) {
                 umount(tokenize(input));
             } else if (strcmp(cmd, "ls") == 0) {
-            
+                ls(tokenize(input));
             } else if (strcmp(cmd, "touch") == 0) {
                 touch(tokenize(input));
             }

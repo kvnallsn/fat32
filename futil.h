@@ -35,6 +35,7 @@ typedef struct fs_table_s {
     int (*init)(int);
     int (*read)(void*,int);
     int (*write)(int, const void*,int);
+    int (*readdir)(int, const char*);
     int (*teardown)();
 } fs_table_t;
 
@@ -45,6 +46,7 @@ extern mount_t *mount_table[];
 void mount_fs(const char *device_name, const char *path);
 void unmount_fs(const char *mount_point);
 
+int opendir(const char *path);
 int fileopen(const char *fname);
 int filewrite(int file, const char *buffer, int count);
 void fileclose(int file);
