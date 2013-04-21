@@ -29,7 +29,7 @@
 		$(AR) $(ARFLAGS) $@ $%
 		$(RM) $%
 
-CC =		gcc
+CC =		clang
 CXX =		g++
 
 RM = rm -f
@@ -41,7 +41,8 @@ COMPILE.cc = $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 
 ########## Default flags (redefine these with a header.mak file if desired)
 CXXFLAGS =	-ggdb -Wall -ansi -pedantic 
-CFLAGS =	-ggdb -Wall -ansi -pedantic --std=c99
+#CFLAGS =	-ggdb -Wall -ansi -pedantic --std=c99
+CFLAGS =	-ggdb -Wall -pedantic --std=c99
 BINDIR =.
 CLIBFLAGS =	
 CCLIBFLAGS =	
