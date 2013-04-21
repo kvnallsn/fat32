@@ -12,10 +12,7 @@
 #define FAT32_XINU_HEADER
 
 #include <stdint.h>
-#include "futil.h"
-
-#define     FAT16       0
-#define     FAT32       1
+#include "fs_types.h"
 
 typedef struct fat_extBS_32 {
 	//extended fat32 stuff
@@ -120,7 +117,7 @@ extern DskSiztoSecPerClus_t DskTableFAT32[];
 /* Functions */
 int fat32_init(int dev);
 int fat32_read(void *buffer, int count);
-int fat32_write(int device, const void* buffer, int count);
-int fat32_readdir(int dev, const char* path);
+int fat32_write(int file, const void* buffer, int count);
+dir_entry_t fat32_readdir(dir_t *dir);
 int fat32_teardown();
 #endif

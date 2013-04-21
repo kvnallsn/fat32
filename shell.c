@@ -10,6 +10,8 @@ typedef struct arg_info_s {
     char **argv;
 } arg_info_t;
 
+static char *current_dir = "/";
+
 arg_info_t tokenize(char *input) {
     int num_cmds = 2;
     for (int i = 0; i < strlen(input); i++) {
@@ -25,6 +27,19 @@ arg_info_t tokenize(char *input) {
     
     arg_info.argv[num_cmds] = (char*)'\0';
     return arg_info;
+}
+
+char * prepend_path(char *path) {
+    if (path == NULL) { return NULL; }
+    
+    if (path[0] != '/') {
+        char *full_path = calloc(strlen(path) + strlen(current_dir) + 1, sizeof(char));
+        strcpy(full_path, current_dir);
+        strcat(full_path, path);
+        return full_path;
+    }
+    
+    return path;
 }
 
 void mount(arg_info_t args) {
@@ -59,7 +74,12 @@ void ls(arg_info_t args) {
         printf("usage: ls\n");
         return;
     }
-    opendir("/");   
+    int dir = opendir("/"); 
+    char *file;
+    //readdir(dir);
+    while ((file = readdir(dir)) != NULL) {
+        printf("%s\n", file);
+    }
 }
 
 void touch(arg_info_t args) {
@@ -68,8 +88,8 @@ void touch(arg_info_t args) {
         return;
     }
     
-    int fp = fileopen(args.argv[0]);
-    filewrite(fp, "", 8192);
+    int fp = fileopen(prepend_path(args.argv[0]));
+    filewrite(fp, "", 1);
     fileclose(fp);
 }
 
