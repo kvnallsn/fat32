@@ -116,7 +116,6 @@ void cat(arg_info_t args) {
     while ((nr = fileread(fp, buffer, 512)) > 0) {
         printf("%s", buffer);
     }
-    printf("\r\n");
     fileclose(fp);
 }
 
