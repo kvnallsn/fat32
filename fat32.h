@@ -92,7 +92,7 @@ typedef struct fat_long_direntry {
     unsigned char       checksum;
     unsigned short      charset2[6];
     unsigned short      zero;
-    unsigned short       charset3[2];
+    unsigned short      charset3[2];
 }__attribute__((packed)) fat_long_direntry_t;
 
 typedef struct DskSiztoSecPerClus {
@@ -116,7 +116,7 @@ extern DskSiztoSecPerClus_t DskTableFAT32[];
 
 /* Functions */
 int fat32_init(int dev);
-int fat32_read(void *buffer, int count);
+int fat32_read(file_t* file, void *buffer, int count);
 int fat32_write(int file, const void* buffer, int count);
 dir_entry_t fat32_readdir(dir_t *dir);
 int fat32_teardown();

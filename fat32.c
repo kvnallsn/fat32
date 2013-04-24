@@ -31,6 +31,109 @@ DskSiztoSecPerClus_t DskTableFAT32[] = {
 
 fat_t *fat_table[MOUNT_LIMIT];
 
+char to_upper(char c) {
+    return (c > 0x60 && c < 0x7B) ? (c - 0x20) : c;
+}
+
+unsigned char lfn_checksum(const unsigned char *pFCBName)
+{
+   int i;
+   unsigned char sum = 0;
+ 
+   for (i = 11; i; i--)
+      sum = ((sum & 1) << 7) + (sum >> 1) + *pFCBName++;
+ 
+   return sum;
+}
+
+/*
+ * Generates and 8.3 representation of a filename
+ * 
+ * @param   input       Filename to convert to 8.3
+ *
+ * @return  The 8.3 representation of the filename
+ */
+char * gen_basis_name(char *input) {
+    int len = strlen(input);
+    char *shortname = calloc(12, sizeof(char));
+    int start;
+    for (start = 0; start < len && (input[start] == 0x20 || input[start] == 0x2e); start++);
+    
+    int char_copied = 0;
+    int pos;
+    for (pos = start; pos < len && input[pos] != 0x2E && char_copied < 8; pos++) {
+        char c;
+        switch (input[pos]) {
+        case 0x20:
+            printf("stop\n");
+            break;
+        case 0x21:
+        case 0x23:
+        case 0x24:
+        case 0x25:
+        case 0x26:
+        case 0x27:
+        case 0x28:
+        case 0x29:
+        case 0x40:
+        case 0x5E:
+        case 0x5F:
+        case 0x60:
+        case 0x7B:
+        case 0x7D:
+        case 0x7E:
+            c = '_';
+            shortname[char_copied++] = c; 
+            break;
+        default:
+            c = to_upper(input[pos]);
+            shortname[char_copied++] = c; 
+        }       
+    }
+
+    int ext;
+    for (ext = len - 1; ext > pos; ext--) {
+        if (input[ext] == 0x2E) break;
+    }
+
+    //if (ext >= pos) shortname[char_copied++] = '.';
+    for (;char_copied < 8; char_copied++) shortname[char_copied] = ' ';
+    for (int i = ext+1; i < len && char_copied < 11; i++) {
+        shortname[char_copied++] = to_upper(input[i]);
+    } 
+    
+    return shortname;    
+}
+
+fat_long_direntry_t build_long_entry(int order, char *input, unsigned char *shortname) {
+    fat_long_direntry_t long_ent;
+    long_ent.order = order;
+    long_ent.attribute = 0x0F;
+    long_ent.type = 0x00;
+    long_ent.checksum = lfn_checksum(shortname);
+    long_ent.zero = 0x0000;
+    
+    order = order & 0x9F;
+    int pos = (order - 1) * 13;
+    int len = strlen(input);
+    
+    long_ent.charset1[0] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset1[1] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset1[2] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset1[3] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset1[4] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset2[0] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset2[1] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset2[2] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset2[3] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset2[4] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset2[5] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset3[0] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset3[1] = (pos < len) ? input[pos++] : 0x0000;
+    
+    return long_ent;
+}
+
 void update_fsinfo(const char *device_name, fat_fsinfo_t *info) {
     int device = open(device_name, O_WRONLY);
     lseek(device, 1000, SEEK_SET);
@@ -98,10 +201,6 @@ int fat32_init(int dev) { //const char *device_name) {
     return 0;
 }
 
-int fat32_read(void *buffer, int count) {
-    return 0;
-}
-
 /*
  * Compute the byte offset from SEEK_SET of a given cluster
  * 
@@ -165,8 +264,8 @@ unsigned int write_fat_table(int device, fat_t* fat, unsigned int cluster, unsig
 
     
     printf("[FAT_WRITE]: Using cluster: [%d] at offset [%d] in sector [%d] at entry [%d]\n", cluster, fat_offset, fat_sector, ent_offset);
-    //lseek(device, fat_sector * fat->bs->bytes_per_sector, SEEK_SET);
-    //write(device, FAT, fat->bs->bytes_per_sector);
+    lseek(device, fat_sector * fat->bs->bytes_per_sector, SEEK_SET);
+    write(device, FAT, fat->bs->bytes_per_sector);
     
     printf("[FAT_WRITE]: Wrote Value: 0x%08X\n", *(unsigned int*)&FAT[ent_offset]);
     return cluster;
@@ -211,39 +310,6 @@ unsigned char * process_long_entry(unsigned char *buff, int *offcount) {
     return str;
 }
 
-/* unsigned char * read_dir_entry(int device, fat_t *fat, unsigned int cluster) {
-
-    unsigned char *filename = NULL;
-    unsigned char buff[32];
-    int nr = read(device, buff, 32);
-    if ((   nr < 32) != 0) {
-        printf("[FAT32] Error reading directory\n");
-        return NULL;
-    }
-    if (buff[11] == 0x0F) {
-        filename = process_long_entry(device, (fat_long_direntry_t*)buff);
-    } else {
-        // * Regular Entry
-        fat_direntry_t *dir = (fat_direntry_t*)buff;
-        
-        switch (dir->attributes) {
-            case 0x02:
-            case 0x08:
-            case 0x40:
-                break;
-            default:
-                //printf("%s\n", (filename != NULL ? filename : dir->name));
-                if (filename == NULL) { filename = dir->name; } //printf("%s\n", filename); free(filename); filename = NULL; }
-        }
-    }
-    
-    return filename;
-} */
-
-int find_dir(const char *path) {
-    return -1;
-}
-
 // Offset is # of 32-bit entries from the start of the cluster
 dir_entry_t fat32_readdir(dir_t *dir) {
     /* Get the FAT Information from the table of open mounted FATs */
@@ -269,6 +335,7 @@ dir_entry_t fat32_readdir(dir_t *dir) {
     dir_entry_t de;
     unsigned char *filename = NULL;
     for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
+        de.dir = 0;
         unsigned char *b = buff + i;
         if (b[0] == 0x00) { de.name = NULL; break; }
         if (b[11] == 0x0F) {
@@ -285,30 +352,134 @@ dir_entry_t fat32_readdir(dir_t *dir) {
                 case 0x40:
                     dir->offset++;
                     continue;
+                case 0x10:
+                    de.dir = 1;
                 default:
                     //printf("%s\n", (filename != NULL ? filename : dir->name));
                     if (filename == NULL) { filename = ((fat_direntry_t*)b)->name; } //printf("%s\n", filename); free(filename); filename = NULL; }
             }
             dir->offset++;
             de.name = (char*)filename;
+            de.misc = b;
             break;
         }
     }    
-    
+   
     close(device);   
     
     return de;
 }
 
+/*
+ * Update the directory table with a new file 
+ */
+void fat32_writedir(file_t *file, int startclu) {
+    dir_t *dir = dirtable[file->directory];
+    /* Get the FAT Information from the table of open mounted FATs */
+    fat_t *fat = fat_table[dir->device];
+    /* Open Device */
+    int device = open(mount_table[dir->device]->device_name, O_RDWR);
+    int rootdir = fat->fs_type == FAT16 ? 
+        fat->bs->reserved_sector_count + (fat->bs->table_count * fat->bs->total_sectors_16) : 
+        ((fat_extBS_32_t*)fat->bs->extended_section)->root_cluster;    
+        
+    int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
+    int cluster = (dir->offset * 4) / cluster_size;
+    /* Traverse FAT Table */
+    for (int i = 0; i < cluster; i++) {
+        rootdir = read_fat_table(device, fat, rootdir);
+    }
+    
+    printf("[FAT_WRITE]: Dir at: %d\n", rootdir);
+    
+    fat_direntry_t dirent;
+    char *filename = gen_basis_name(file->name);
+    for (int i = 0; i < 11; i++) dirent.name[i] = filename[i];
+    
+    dirent.attributes = 0x0;
+    dirent.reserved_nt = 0;
+    dirent.time_milli = 0;
+    dirent.time = 0;
+    dirent.date = 0;
+    dirent.last_accessed = 0;
+    dirent.high_clu = (startclu & 0xFFFF0000) >> 16;
+    dirent.mod_time = 0;
+    dirent.mod_date = 0;
+    dirent.low_clu = (startclu & 0x0000FFFF);
+    dirent.size = file->size;
+
+    int num_long = strlen(file->name) / 13;
+    num_long += strlen(file->name) % 13 == 0 ? 0 : 1;
+
+    int fat_offset = get_cluster_location(fat, rootdir);
+    lseek(device, fat_offset, SEEK_SET);
+    unsigned char buff[cluster_size];
+    read(device, buff, cluster_size);
+    
+    /* Loop through dir until end is found */
+    for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
+        unsigned char *b = buff + i;
+        if (b[0] == 0x00) { 
+            lseek(device, fat_offset + i, SEEK_SET);
+            /* Write Long Filenames, then the directory entry */
+            for (int i = num_long; i > 0; i--) {
+                fat_long_direntry_t de = build_long_entry(i == num_long ? i | 0x40 : i, file->name, dirent.name);
+                write(device, &de, sizeof(de));
+            }
+            write(device, &dirent, sizeof(dirent));
+            break; 
+        }
+    }    
+   
+    close(device);   
+}
+
+int fat32_read(file_t* file, void *buffer, int count) {
+    fat_t *fat = fat_table[file->device];
+    dir_t dir;
+    dir.path = "/";
+    dir.device = file->device;
+    dir.offset = 0;
+    
+    dir_entry_t d;
+    while ((d = fat32_readdir(&dir)).name != NULL &&
+            strcmp(d.name, file->name) != 0);// printf("[%s] vs [%s]\n", d.name, file->name);
+            
+    if (d.name == NULL) {
+        printf("%s: File Not Found\n", file->name);
+        return -1;
+    }
+    
+    fat_direntry_t *dir_ent = (fat_direntry_t*)d.misc;
+    int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
+    int cluster = (dir_ent->high_clu << 4) | dir_ent->low_clu;
+    
+    int device = open(mount_table[file->device]->device_name, O_RDONLY);
+    int cluster_pos = (count + file->offset) / cluster_size;
+    /* Traverse FAT Table */
+    for (int i = 0; i < cluster_pos; i++) {
+        cluster = read_fat_table(device, fat, cluster);
+    }
+    
+    /* Read count bytes */
+    int fat_offset = get_cluster_location(fat, cluster);    
+    lseek(device, fat_offset + file->offset, SEEK_SET);
+    if (file->offset + count > dir_ent->size) count = dir_ent->size - file->offset;
+    int nr = read(device, buffer, count);
+    file->offset += nr;
+    close(device);
+    return nr;
+}
+
 int fat32_write(int file, const void* buffer, int count) {
     /* Get the FAT Information from the table of open mounted FATs */
-    fileinfo_t *fp = filetable[file];
+    file_t *fp = filetable[file];
     fat_t *fat = fat_table[fp->device];
     
     /* Determine # of clusters needed */
     int clusize = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
     int clusters_needed = count / clusize + (count % clusize == 0 ? 0 : 1);
-    printf("Allocating [%d] clusters of size [%d] bytes\n", clusters_needed, clusize);
+    printf("[FAT_WRITE] Allocating [%d] clusters of size [%d] bytes\n", clusters_needed, clusize);
     
     /* Open Device */
     int device = open(mount_table[fp->device]->device_name, O_RDWR);
@@ -323,22 +494,21 @@ int fat32_write(int file, const void* buffer, int count) {
         /* Find an empty cluster */        
         while (read_fat_table(device, fat, cluster) >= 0x0FFFFFF7) ++cluster;
 
-        printf("Found free cluster [%d]\n", cluster);
+        printf("[FAT_WRITE] Found free cluster [%d]\n", cluster);
         if (filled_clusters > 0) write_fat_table(device, fat, last_cluster, cluster);
         else first_cluster = cluster;
+        
+        /* Write data at current cluster */
+        lseek(device, get_cluster_location(fat, cluster), SEEK_SET);
+        write(device, buffer, count);
         last_cluster = cluster;
         ++filled_clusters;
     }
     write_fat_table(device, fat, last_cluster, 0x0FFFFFFF);
-    
-    /* Update Directory Table */
-    int rootdir = fat->fs_type == FAT16 ? 
-        fat->bs->reserved_sector_count + (fat->bs->table_count * fat->bs->total_sectors_16) : 
-        ((fat_extBS_32_t*)fat->bs->extended_section)->root_cluster;    
-    fat_direntry_t *direntry;
-    
-    //read_dir_entry(device, fat, rootdir);
-    
+
+    /* Dir Table */
+    fat32_writedir(fp, first_cluster);
+       
     close(device);
     return 0;
 }

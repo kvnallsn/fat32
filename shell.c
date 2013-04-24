@@ -5,6 +5,15 @@
 
 #include "futil.h"
 
+#define KNRM    "\x1B[0m"
+#define KRED    "\x1B[31m"
+#define KGRN    "\x1B[32m"
+#define KYEL    "\x1B[33m"
+#define KBLU    "\x1B[34m"
+#define KMAG    "\x1B[35m"
+#define KCYN    "\x1B[36m"
+#define KWHT    "\x1B[37m"
+
 typedef struct arg_info_s {
     int argc;
     char **argv;
@@ -75,11 +84,13 @@ void ls(arg_info_t args) {
         return;
     }
     int dir = opendir("/"); 
-    char *file;
+    dir_entry_t file;
     //readdir(dir);
-    while ((file = readdir(dir)) != NULL) {
-        printf("%s\n", file);
+    while ((file = readdir(dir)).name != NULL) {
+        if (file.dir == 1) printf(KRED "%s\n" KNRM, file.name);
+        else printf("%s\n", file.name);
     }
+    closedir(dir);
 }
 
 void touch(arg_info_t args) {
@@ -90,6 +101,22 @@ void touch(arg_info_t args) {
     
     int fp = fileopen(prepend_path(args.argv[0]));
     filewrite(fp, "", 1);
+    fileclose(fp);
+}
+
+void cat(arg_info_t args) {
+    if (args.argc != 1) {
+        printf("usage: car filename\n");
+        return;
+    }
+    
+    int fp = fileopen(prepend_path(args.argv[0]));
+    int nr = 0;
+    char buffer[512];
+    while ((nr = fileread(fp, buffer, 512)) > 0) {
+        printf("%s", buffer);
+    }
+    printf("\r\n");
     fileclose(fp);
 }
 
@@ -120,6 +147,8 @@ int main(int argc, char **argv) {
                 ls(tokenize(input));
             } else if (strcmp(cmd, "touch") == 0) {
                 touch(tokenize(input));
+            } else if (strcmp(cmd, "cat") == 0) {
+                cat(tokenize(input));
             }
         }
         
