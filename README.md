@@ -15,4 +15,7 @@ Version
 
 0.00000Alpha
 
+License
+-
+
 MIT
