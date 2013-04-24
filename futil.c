@@ -14,8 +14,8 @@ dir_t *dirtable[FILE_LIMIT];
 int next_file_pos = 0;
 
 fs_table_t fs_table[] = {
-    {fat32_init, fat32_read, fat32_write, fat32_readdir, fat32_teardown},
-    {fat32_init, fat32_read, fat32_write, fat32_readdir, fat32_teardown}
+    {fat32_init, fat32_openfile, fat32_read, fat32_write, fat32_readdir, fat32_teardown},
+    {fat32_init, fat32_openfile, fat32_read, fat32_write, fat32_readdir, fat32_teardown}
 };
 
 mount_t *mount_table[MOUNT_LIMIT];
@@ -142,6 +142,9 @@ int fileopen(const char *fname) {
     // byte offset in file
     newfile->offset = 0;
     newfile->size = 0;
+    
+    mount_t *mp = mount_table[newfile->device];
+    fs_table[mp->fs_type].openfile(pos, newfile);
     
     return pos;
 }

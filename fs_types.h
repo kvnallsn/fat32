@@ -37,13 +37,14 @@ typedef struct dir_info {
 typedef struct dir_entry {
     char    *name;
     int     time;
-    int     offset;
+    int     offset; // Offset is # of 32-bit entries from the start of the cluster
     int     dir;
     void    *misc;
 } dir_entry_t;
 
 typedef struct fs_table_s {
     int (*init)(int);
+    int (*openfile)(int, file_t*);
     int (*read)(file_t*,void*,int);
     int (*write)(int, const void*,int);
     dir_entry_t (*readdir)(dir_t*);

@@ -111,12 +111,12 @@ void cat(arg_info_t args) {
     }
     
     int fp = fileopen(prepend_path(args.argv[0]));
-    int nr = 0;
+    /*int nr = 0;
     char buffer[512];
     while ((nr = fileread(fp, buffer, 512)) > 0) {
         printf("%s", buffer);
     }
-    printf("\r\n");
+    printf("\r\n");*/
     fileclose(fp);
 }
 
@@ -149,6 +149,8 @@ int main(int argc, char **argv) {
                 touch(tokenize(input));
             } else if (strcmp(cmd, "cat") == 0) {
                 cat(tokenize(input));
+            } else if (strcmp(cmd, "cp") == 0) {
+            
             }
         }
         

@@ -116,6 +116,7 @@ extern DskSiztoSecPerClus_t DskTableFAT32[];
 
 /* Functions */
 int fat32_init(int dev);
+int fat32_openfile(int pos, file_t *file);
 int fat32_read(file_t* file, void *buffer, int count);
 int fat32_write(int file, const void* buffer, int count);
 dir_entry_t fat32_readdir(dir_t *dir);
