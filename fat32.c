@@ -31,17 +31,47 @@ DskSiztoSecPerClus_t DskTableFAT32[] = {
 
 fat_t *fat_table[MOUNT_LIMIT];
 
-char to_upper(char c) {
+/*********** Inline Functions ***************/
+
+/*
+ * Converts a lowercase ASCII character to an uppercase one
+ *
+ * @param   c       Lowercase character to convert
+ *
+ * @return  Uppercase varient of c
+ */
+inline static char to_upper(char c) {
     return (c > 0x60 && c < 0x7B) ? (c - 0x20) : c;
 }
 
-unsigned char lfn_checksum(const unsigned char *pFCBName)
-{
+/*
+ * Compute the byte offset from SEEK_SET of a given cluster
+ * 
+ * @param   fat             FAT Information Struct containing necessary values to compute location
+ * @param   cluster         Relative cluster in the data section
+ *
+ * @return  Offset in bytes from SEEK_SET of this cluster
+ */
+inline static int get_cluster_location(fat_t *fat, int cluster) {
+    return (fat->data_sect + (fat->bs->sectors_per_cluster * (cluster - 2))) * fat->bs->bytes_per_sector;
+}
+
+
+/*********** Local Functions ***************/
+
+/*
+ * Compute the checksum for the DOS filename
+ *
+ * @param   filename        8.3 Filename to compute the checksum of
+ *
+ * @return  Checksum of the 8.3 filename
+ */
+unsigned char lfn_checksum(const unsigned char *filename) {
    int i;
    unsigned char sum = 0;
  
    for (i = 11; i; i--)
-      sum = ((sum & 1) << 7) + (sum >> 1) + *pFCBName++;
+      sum = ((sum & 1) << 7) + (sum >> 1) + *filename++;
  
    return sum;
 }
@@ -139,78 +169,6 @@ void update_fsinfo(const char *device_name, fat_fsinfo_t *info) {
     lseek(device, 1000, SEEK_SET);
     write(device, info, 8);
     close(device);
-}
-
-/* This need to load the BootSector, 
-*  Check the Info Sector and Load the FAT Table */
-int fat32_init(int dev) { //const char *device_name) {
-    const char *device_name = mount_table[dev]->device_name;
-    int device = open(device_name, O_RDONLY);
-    if (device < 0) { perror("fat32"); exit(EXIT_FAILURE); }
-    fat_t *fat = calloc(1, sizeof(fat_t));
-    fat_BS_t *bs = calloc(1, sizeof(fat_BS_t));
-    fat->bs = bs;
-    
-    int rd = read(device, fat->bs, 90);
-    if (rd <= 0) {
-        close(device);
-        perror("fat32");
-        return -1;
-    }
-    
-    lseek(device, 910, SEEK_CUR);
-    fat->info = calloc(1, sizeof(fat_fsinfo_t));
-    rd = read(device, fat->info, 8);
-    if (rd <= 0) {
-        close(device);
-        perror("fat32");
-        return -1;
-    }
-      
-    printf("Free Clusters Count: %d\n", fat->info->num_free_clusters);
-    printf("Last Allocd Cluster: 0x%08X\n", fat->info->last_alloc);
-    printf("Sectors Per Cluster: %d\n", fat->bs->sectors_per_cluster);
-    
-    /* Load the FAT Table after computing its position */
-    int root_dir_sectors = ((fat->bs->root_entry_count * 32) + (fat->bs->bytes_per_sector - 1)) / fat->bs->bytes_per_sector;    
-    int tblsize = (fat->bs->table_size_16 != 0) ? fat->bs->table_size_16 : ((fat_extBS_32_t*)fat->bs->extended_section)->table_size_32;    
-    
-    fat->data_sect = fat->bs->reserved_sector_count + (fat->bs->table_count * tblsize) + root_dir_sectors;
-    int n_sectors = ((fat->bs->total_sectors_16 != 0) ? fat->bs->total_sectors_16 : fat->bs->total_sectors_32) - fat->data_sect;
-    fat->n_clusters = n_sectors / fat->bs->sectors_per_cluster;
-    fat->fs_type = (fat->n_clusters < 65525) ? FAT16 : FAT32;
-    int n_free = 0;
-    
-    printf("Size of FAT: %d\n", fat->n_clusters);
-    lseek(device, fat->bs->reserved_sector_count * fat->bs->bytes_per_sector, SEEK_SET);
-    for (int i = 0; i < fat->n_clusters; i++) {
-        /* Read each cluster and check if it is free or not */
-        int cluster = 0;
-        read(device, &cluster, 4);
-        if ((cluster & 0x0FFFFFFF) < 0x0FFFFFF7) ++n_free; else fat->info->last_alloc = i;
-    }
-    printf("Number of Free Clusters: %d\n", n_free);
-    
-    fat->info->num_free_clusters = n_free;
-    
-    close(device);
-    
-    update_fsinfo(device_name, fat->info);
-
-    fat_table[dev] = fat;
-    return 0;
-}
-
-/*
- * Compute the byte offset from SEEK_SET of a given cluster
- * 
- * @param   fat             FAT Information Struct containing necessary values to compute location
- * @param   cluster         Relative cluster in the data section
- *
- * @return  Offset in bytes from SEEK_SET of this cluster
- */
-inline static int get_cluster_location(fat_t *fat, int cluster) {
-    return (fat->data_sect + (fat->bs->sectors_per_cluster * (cluster - 2))) * fat->bs->bytes_per_sector;
 }
 
 /* 
@@ -368,6 +326,70 @@ dir_entry_t fat32_readdir(dir_t *dir) {
     close(device);   
     
     return de;
+}
+
+
+/*********** Exported Functions ***************/
+
+/*  This need to load the BootSector, 
+ *  Check the Info Sector and Load the FAT Table 
+ */
+int fat32_init(int dev) { //const char *device_name) {
+    const char *device_name = mount_table[dev]->device_name;
+    int device = open(device_name, O_RDONLY);
+    if (device < 0) { perror("fat32"); exit(EXIT_FAILURE); }
+    fat_t *fat = calloc(1, sizeof(fat_t));
+    fat_BS_t *bs = calloc(1, sizeof(fat_BS_t));
+    fat->bs = bs;
+    
+    int rd = read(device, fat->bs, 90);
+    if (rd <= 0) {
+        close(device);
+        perror("fat32");
+        return -1;
+    }
+    
+    lseek(device, 910, SEEK_CUR);
+    fat->info = calloc(1, sizeof(fat_fsinfo_t));
+    rd = read(device, fat->info, 8);
+    if (rd <= 0) {
+        close(device);
+        perror("fat32");
+        return -1;
+    }
+      
+    printf("Free Clusters Count: %d\n", fat->info->num_free_clusters);
+    printf("Last Allocd Cluster: 0x%08X\n", fat->info->last_alloc);
+    printf("Sectors Per Cluster: %d\n", fat->bs->sectors_per_cluster);
+    
+    /* Load the FAT Table after computing its position */
+    int root_dir_sectors = ((fat->bs->root_entry_count * 32) + (fat->bs->bytes_per_sector - 1)) / fat->bs->bytes_per_sector;    
+    int tblsize = (fat->bs->table_size_16 != 0) ? fat->bs->table_size_16 : ((fat_extBS_32_t*)fat->bs->extended_section)->table_size_32;    
+    
+    fat->data_sect = fat->bs->reserved_sector_count + (fat->bs->table_count * tblsize) + root_dir_sectors;
+    int n_sectors = ((fat->bs->total_sectors_16 != 0) ? fat->bs->total_sectors_16 : fat->bs->total_sectors_32) - fat->data_sect;
+    fat->n_clusters = n_sectors / fat->bs->sectors_per_cluster;
+    fat->fs_type = (fat->n_clusters < 65525) ? FAT16 : FAT32;
+    int n_free = 0;
+    
+    printf("Size of FAT: %d\n", fat->n_clusters);
+    lseek(device, fat->bs->reserved_sector_count * fat->bs->bytes_per_sector, SEEK_SET);
+    for (int i = 0; i < fat->n_clusters; i++) {
+        /* Read each cluster and check if it is free or not */
+        int cluster = 0;
+        read(device, &cluster, 4);
+        if ((cluster & 0x0FFFFFFF) < 0x0FFFFFF7) ++n_free; else fat->info->last_alloc = i;
+    }
+    printf("Number of Free Clusters: %d\n", n_free);
+    
+    fat->info->num_free_clusters = n_free;
+    
+    close(device);
+    
+    update_fsinfo(device_name, fat->info);
+
+    fat_table[dev] = fat;
+    return 0;
 }
 
 /*
