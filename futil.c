@@ -14,8 +14,8 @@ dir_t *dirtable[FILE_LIMIT];
 int next_file_pos = 0;
 
 fs_table_t fs_table[] = {
-    {fat32_init, fat32_openfile, fat32_read, fat32_write, fat32_readdir, fat32_teardown},
-    {fat32_init, fat32_openfile, fat32_read, fat32_write, fat32_readdir, fat32_teardown}
+    {fat32_init, fat32_openfile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
+    {fat32_init, fat32_openfile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
 };
 
 mount_t *mount_table[MOUNT_LIMIT];
@@ -162,8 +162,10 @@ int fileread(int file, char *buffer, int count) {
     file_t *fp = filetable[file];
     mount_t *mp = mount_table[fp->device];
     
-    int num_read = fs_table[mp->fs_type].read(fp, buffer, count);
+    int num_read = fs_table[mp->fs_type].read(file, buffer, count);
+
     if (num_read < count) buffer[num_read] = '\0';
+
     return num_read;
 }
 

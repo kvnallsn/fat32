@@ -45,7 +45,7 @@ typedef struct dir_entry {
 typedef struct fs_table_s {
     int (*init)(int);
     int (*openfile)(int, file_t*);
-    int (*read)(file_t*,void*,int);
+    int (*read)(int,void*,int);
     int (*write)(int, const void*,int);
     dir_entry_t (*readdir)(dir_t*);
     int (*teardown)();

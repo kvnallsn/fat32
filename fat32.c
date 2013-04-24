@@ -418,10 +418,7 @@ int fat32_openfile(int pos, file_t *file) {
     
     int fat_offset = get_cluster_location(&fat, rootdir_cluster);    
     while (1) {
-        /* Look for name */
-        printf("In dir: %s\n", dir.path);
-        printf("lvl: %s\n", lvl);
-        
+        /* Look for name */        
         lseek(device, fat_offset, SEEK_SET);
         unsigned char buff[cluster_size];
         read(device, buff, cluster_size);
@@ -449,7 +446,6 @@ int fat32_openfile(int pos, file_t *file) {
             lvl = strtok(NULL, "/");
             if (lvl == NULL) break;
         } else {
-            printf("Found: [%s]\n", file.name);
             break;
         }
     }
@@ -556,46 +552,30 @@ void fat32_writedir(file_t *file, int startclu) {
 
 int fat32_readfile(int file, void *buffer, int count) {
     file_t *fp = filetable[file];
-    fat_t *fat = &(fat_table[fp->device]);
+    //fat_t *fat = &(fat_table[fp->device]);
     
     fat_direntry_t *fat_dirent = &(fat_file_table[file]);
     
-    return 0;
+    int cluster = (fat_dirent->high_clu << 16) | fat_dirent->low_clu;
+    
+    int num_to_read = (fp->offset + count > fat_dirent->size) ? fat_dirent->size - fp->offset : count;
+    int nr = fat32_read(fp->device, cluster, fp->offset, buffer, num_to_read);
+    fp->offset += nr;
+    
+    return nr;
 }
 
-int fat32_read(file_t* file, void *buffer, int count) {
-    fat_t fat = fat_table[file->device];
-    dir_t dir;
-    dir.path = "/";
-    dir.device = file->device;
-    dir.offset = 0;
+int fat32_read(int dev, int cluster, int offset, void *buffer, int count) {
+
+    fat_t fat = fat_table[dev];        
     
-    dir_entry_t d;
-    while ((d = fat32_readdir(&dir)).name != NULL &&
-            strcmp(d.name, file->name) != 0);// printf("[%s] vs [%s]\n", d.name, file->name);
-            
-    if (d.name == NULL) {
-        printf("%s: File Not Found\n", file->name);
-        return -1;
-    }
-    
-    fat_direntry_t *dir_ent = (fat_direntry_t*)d.misc;
-    int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
-    int cluster = (dir_ent->high_clu << 4) | dir_ent->low_clu;
-    
-    int device = open(mount_table[file->device]->device_name, O_RDONLY);
-    int cluster_pos = (count + file->offset) / cluster_size;
-    /* Traverse FAT Table */
-    for (int i = 0; i < cluster_pos; i++) {
-        cluster = read_fat_table(device, &fat, cluster);
-    }
+    int device = open(mount_table[dev]->device_name, O_RDONLY);
     
     /* Read count bytes */
-    int fat_offset = get_cluster_location(&fat, cluster);    
-    lseek(device, fat_offset + file->offset, SEEK_SET);
-    if (file->offset + count > dir_ent->size) count = dir_ent->size - file->offset;
+    int fat_data_loc = get_cluster_location(&fat, cluster);    
+    
+    lseek(device, fat_data_loc+offset, SEEK_SET);    
     int nr = read(device, buffer, count);
-    file->offset += nr;
     close(device);
     return nr;
 }

@@ -111,12 +111,12 @@ void cat(arg_info_t args) {
     }
     
     int fp = fileopen(prepend_path(args.argv[0]));
-    /*int nr = 0;
+    int nr = 0;
     char buffer[512];
     while ((nr = fileread(fp, buffer, 512)) > 0) {
         printf("%s", buffer);
     }
-    printf("\r\n");*/
+    printf("\r\n");
     fileclose(fp);
 }
 
