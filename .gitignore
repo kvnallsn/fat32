@@ -15,3 +15,12 @@
 *.exe
 *.out
 *.app
+
+# Others
+*.img
+.*
+*.bak
+mkfs
+hello
+shell
+futil
