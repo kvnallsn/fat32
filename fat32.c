@@ -277,7 +277,14 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
     for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
         de.dir = 0;
         unsigned char *b = buff + i;
+        
         if (b[0] == 0x00) { de.name = NULL; break; }
+        /*if (b[0] == 0x2E) {
+            de.name = b[1] == 0x2E ? (char*)-2 : (char*)-1;
+            dir->offset++;
+            break;
+        } */
+        
         if (b[11] == 0x0F) {
             int off = 0;
             int *off_ref = &off;
@@ -285,6 +292,7 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
             dir->offset += off;
             i += ((off - 1) * 32);
         } else {
+            //printf("Dir: [%s]\n", ((fat_direntry_t*)b)->name);
             /* Regular Entry */        
             switch (((fat_direntry_t*)b)->attributes) {
                 case 0x02:
@@ -299,7 +307,11 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
                     if (filename == NULL) { filename = ((fat_direntry_t*)b)->name; } //printf("%s\n", filename); free(filename); filename = NULL; }
             }
             dir->offset++;
-            de.name = (char*)filename;
+            if (b[0] == 0x2E) {
+                de.name = b[1] == 0x2E ? ".." : ".";
+            } else {
+                de.name = (char*)filename;
+            }
             de.misc = b;
             break;
         }
@@ -427,6 +439,7 @@ int fat32_openfile(int pos, file_t *file, int cd) {
     int fat_offset = get_cluster_location(&fat, current_cluster);    
     while (1) {
         /* Look for name */        
+        
         lseek(device, fat_offset, SEEK_SET);
         unsigned char buff[cluster_size];
         read(device, buff, cluster_size);
@@ -441,17 +454,25 @@ int fat32_openfile(int pos, file_t *file, int cd) {
             printf("Not found\n");
             break;
         }
+        
         dirent_p = (fat_direntry_t*)dirent.misc;
         if (dirent_p == NULL) {printf("ERROR\n"); break;};
         fat_dirent = *dirent_p;
-        // If its a directory, reload info and recurse into it
+        
+        /* If its a directory, reload info and recurse into it */
         if (fat_dirent.attributes == 0x10) {
             fat_offset =  get_cluster_location(&fat, (fat_dirent.high_clu << 16) | fat_dirent.low_clu);   
-            strcat(dir.path, lvl);
-            strcat(dir.path, "/");
             dir.offset = 0;
+            /* If this is a change directory command and we found the right dir,
+             * then updated the current_directory and break out of the loop */
             if (cd == 1 && strcmp(file->name, lvl) == 0) {
                 current_directory = (fat_dirent.high_clu << 16) | fat_dirent.low_clu;
+                if (current_directory == 0) {
+                    // Reload Root Directory
+                    current_directory = fat.fs_type == FAT16 ? 
+                        fat.bs->reserved_sector_count + (fat.bs->table_count * fat.bs->total_sectors_16) : 
+                        ((fat_extBS_32_t*)fat.bs->extended_section)->root_cluster;   
+                }
                 break;
             }
             lvl = strtok(NULL, "/");
