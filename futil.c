@@ -8,7 +8,7 @@
 
 #include "futil.h"
 
-file_t *filetable[FILE_LIMIT];
+file_t filetable[FILE_LIMIT];
 dir_t *dirtable[FILE_LIMIT];
 
 int next_file_pos = 0;
@@ -84,7 +84,7 @@ int get_device(const char *path) {
  */
 int get_next_table_pos(void *table, int limit) {
     for (int fpos = 0; fpos < FILE_LIMIT; fpos++) {
-        if (filetable[fpos] == NULL) return fpos;
+        if (filetable[fpos].name == NULL) return fpos;
     }
     return -1;
 }
@@ -106,10 +106,21 @@ int opendir(const char *path) {
 
 dir_entry_t readdir(int dir) {
     dir_t *dir_info = dirtable[dir];
-    //fs_table[mount_table[dir_info->device]->fs_type].readdir(dir_info->device, dir_info->path);
     return fs_table[mount_table[dir_info->device]->fs_type].readdir(dir_info);
-    //printf("DE: %s\n", de.name);
-    //return de.name;
+}
+
+void changedir(char *dirname) {
+
+    file_t file;
+    file.name = strrchr(dirname, '/');
+    file.name++;    // Increase 1 past the last /
+    file.path = dirname;
+    file.device = get_device(dirname);
+    file.directory = 1;
+    file.offset = 0;
+    file.size = 0;
+
+    fs_table[mount_table[file.device]->fs_type].openfile(-1, &file, 1);
 }
 
 void closedir(int dir) {
@@ -125,33 +136,31 @@ void closedir(int dir) {
 }
 
 int fileopen(const char *fname) {
-    file_t *newfile = calloc(1, sizeof(file_t));
     
-    char *npos = strrchr(fname, '/'); int sz = strlen(++npos);    
-    newfile->name = calloc(sz, sizeof(char));
-    strncpy(newfile->name, npos, sz);
-    
-    newfile->path = calloc(strlen(fname), sizeof(char));
-    strncpy(newfile->path, fname, strlen(fname));
-    newfile->directory = opendir(newfile->path);
-    
-    newfile->device = get_device(fname);
     int pos = get_next_table_pos(filetable, FILE_LIMIT);
-    filetable[pos] = newfile;
-   
-    // byte offset in file
-    newfile->offset = 0;
-    newfile->size = 0;
+    char *npos = strrchr(fname, '/'); int sz = strlen(++npos);    
+    filetable[pos].name = calloc(sz, sizeof(char));
+    strncpy(filetable[pos].name, npos, sz);
     
-    mount_t *mp = mount_table[newfile->device];
-    fs_table[mp->fs_type].openfile(pos, newfile);
+    filetable[pos].path = calloc(strlen(fname), sizeof(char));
+    strncpy(filetable[pos].path, fname, strlen(fname));
+    filetable[pos].directory = opendir(filetable[pos].path);
+    
+    filetable[pos].device = get_device(fname);
+    
+    // byte offset in file
+    filetable[pos].offset = 0;
+    filetable[pos].size = 0;
+        
+    mount_t *mp = mount_table[filetable[pos].device];
+    fs_table[mp->fs_type].openfile(pos, &filetable[pos], 0);
     
     return pos;
 }
 
 int filewrite(int file, const char *buffer, int count) {
     if (file > FILE_LIMIT) { return -1; }
-    file_t *fp = filetable[file];
+    file_t *fp = &(filetable[file]);
     mount_t *mp = mount_table[fp->device];
     
     return fs_table[mp->fs_type].write(file, buffer, count);
@@ -159,7 +168,7 @@ int filewrite(int file, const char *buffer, int count) {
 
 int fileread(int file, char *buffer, int count) {
     if (file > FILE_LIMIT) { return -1; }
-    file_t *fp = filetable[file];
+    file_t *fp = &(filetable[file]);
     mount_t *mp = mount_table[fp->device];
     
     int num_read = fs_table[mp->fs_type].read(file, buffer, count);
@@ -174,9 +183,8 @@ void fileclose(int file) {
     
     // Flush All Changes Here
     
-    file_t *fp = filetable[file];
-    filetable[file] = NULL;
+    file_t *fp = &(filetable[file]);
+    //filetable[file] = NULL;
     
     if (fp->name != NULL) free(fp->name);
-    if (fp != NULL) free(fp);
 }

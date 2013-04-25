@@ -85,7 +85,6 @@ void ls(arg_info_t args) {
     }
     int dir = opendir("/"); 
     dir_entry_t file;
-    //readdir(dir);
     while ((file = readdir(dir)).name != NULL) {
         if (file.dir == 1) printf(KRED "%s\n" KNRM, file.name);
         else printf("%s\n", file.name);
@@ -106,7 +105,7 @@ void touch(arg_info_t args) {
 
 void cat(arg_info_t args) {
     if (args.argc != 1) {
-        printf("usage: car filename\n");
+        printf("usage: cat filename\n");
         return;
     }
     
@@ -117,6 +116,14 @@ void cat(arg_info_t args) {
         printf("%s", buffer);
     }
     fileclose(fp);
+}
+
+void cd(arg_info_t args) {
+    if (args.argc != 1) {
+        printf("usage: cd directory\n");
+        return;
+    } 
+    changedir(args.argv[0]);
 }
 
 int main(int argc, char **argv) {
@@ -148,8 +155,8 @@ int main(int argc, char **argv) {
                 touch(tokenize(input));
             } else if (strcmp(cmd, "cat") == 0) {
                 cat(tokenize(input));
-            } else if (strcmp(cmd, "cp") == 0) {
-            
+            } else if (strcmp(cmd, "cd") == 0) {
+                cd(tokenize(input));
             }
         }
         

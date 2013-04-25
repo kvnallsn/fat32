@@ -23,6 +23,7 @@ void unmount_fs(const char *mount_point);
 
 int opendir(const char *path);
 dir_entry_t readdir(int dir);
+void changedir(char *dirname);
 void closedir(int dir);
 
 int fileopen(const char *fname);
