@@ -150,21 +150,24 @@ fat_long_direntry_t build_long_entry(int order, char *input, unsigned char *shor
     
     order = order & 0x9F;
     int pos = (order - 1) * 13;
+    int s_pos = pos;
     int len = strlen(input);
     
-    long_ent.charset1[0] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset1[1] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset1[2] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset1[3] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset1[4] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset2[0] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset2[1] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset2[2] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset2[3] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset2[4] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset2[5] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset3[0] = (pos < len) ? input[pos++] : 0x0000;
-    long_ent.charset3[1] = (pos < len) ? input[pos++] : 0x0000;
+    long_ent.charset1[0] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset1[1] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset1[2] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset1[3] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset1[4] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset2[0] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset2[1] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset2[2] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset2[3] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset2[4] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset2[5] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset3[0] = (pos < len) ? input[pos++] : 0xFFFF;
+    long_ent.charset3[1] = (pos < len) ? input[pos++] : 0xFFFF;
+    
+    printf("[%d]\n", len - s_pos);
     
     return long_ent;
 }
@@ -235,6 +238,7 @@ unsigned int write_fat_table(int device, fat_t* fat, unsigned int cluster, unsig
 unsigned char * process_long_entry(unsigned char *buff, int *offcount) {
     fat_long_direntry_t *ent = (fat_long_direntry_t*)buff;
     
+    
     int seq = 0;
     if ((ent->order & 0x40) != 0x40) {
         printf("[FAT32]: Not Start of Long Filename. Skipping\n");
@@ -267,7 +271,6 @@ unsigned char * process_long_entry(unsigned char *buff, int *offcount) {
         }
         ++(*offcount);
     }
-    
     return str;
 }
 
@@ -277,14 +280,9 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
     for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
         de.dir = 0;
         unsigned char *b = buff + i;
-        
+        //printf("[0x%02X]\n", b[0]);
         if (b[0] == 0x00) { de.name = NULL; break; }
-        /*if (b[0] == 0x2E) {
-            de.name = b[1] == 0x2E ? (char*)-2 : (char*)-1;
-            dir->offset++;
-            break;
-        } */
-        
+        if (b[0] == 0xE5) continue;     /* Skip Deleted Entry */
         if (b[11] == 0x0F) {
             int off = 0;
             int *off_ref = &off;
@@ -292,7 +290,6 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
             dir->offset += off;
             i += ((off - 1) * 32);
         } else {
-            //printf("Dir: [%s]\n", ((fat_direntry_t*)b)->name);
             /* Regular Entry */        
             switch (((fat_direntry_t*)b)->attributes) {
                 case 0x02:
@@ -303,15 +300,10 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
                 case 0x10:
                     de.dir = 1;
                 default:
-                    //printf("%s\n", (filename != NULL ? filename : dir->name));
-                    if (filename == NULL) { filename = ((fat_direntry_t*)b)->name; } //printf("%s\n", filename); free(filename); filename = NULL; }
+                    if (filename == NULL) { filename = ((fat_direntry_t*)b)->name; } 
             }
             dir->offset++;
-            if (b[0] == 0x2E) {
-                de.name = b[1] == 0x2E ? ".." : ".";
-            } else {
-                de.name = (char*)filename;
-            }
+            de.name = b[0] == 0x2E ? (b[1] == 0x2E ? ".." : ".") : (char*)filename;
             de.misc = b;
             break;
         }
@@ -466,6 +458,7 @@ int fat32_openfile(int pos, file_t *file, int cd) {
             /* If this is a change directory command and we found the right dir,
              * then updated the current_directory and break out of the loop */
             if (cd == 1 && strcmp(file->name, lvl) == 0) {
+                printf("Cluster: [%d]\n", fat_offset);
                 current_directory = (fat_dirent.high_clu << 16) | fat_dirent.low_clu;
                 if (current_directory == 0) {
                     // Reload Root Directory
@@ -524,9 +517,7 @@ void fat32_writedir(file_t *file, int startclu) {
     fat_t fat = fat_table[dir->device];
     /* Open Device */
     int device = open(mount_table[dir->device]->device_name, O_RDWR);
-    int rootdir = fat.fs_type == FAT16 ? 
-        fat.bs->reserved_sector_count + (fat.bs->table_count * fat.bs->total_sectors_16) : 
-        ((fat_extBS_32_t*)fat.bs->extended_section)->root_cluster;    
+    int rootdir = current_directory; 
         
     int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
     int cluster = (dir->offset * 4) / cluster_size;
