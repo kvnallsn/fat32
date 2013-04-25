@@ -50,12 +50,12 @@ CCLIBFLAGS =
 
 
 CPP_FILES =	
-C_FILES =	fat32.c futil.c mkfs.c shell.c
+C_FILES =	fat32.c vfs.c mkfs.c shell.c
 S_FILES =	
-H_FILES =	fat32.h futil.h
+H_FILES =	fat32.h vfs.h
 SOURCEFILES =	$(H_FILES) $(CPP_FILES) $(C_FILES) $(S_FILES)
 .PRECIOUS:	$(SOURCEFILES)
-OBJFILES =	fat32.o futil.o 
+OBJFILES =	fat32.o vfs.o 
 
 #
 # Main targets
@@ -76,7 +76,7 @@ ${BINDIR}/shell:	shell.o $(OBJFILES)
 #
 
 fat32.o:	fat32.h
-futil.o:	fat32.h futil.h
+vfs.o:	fat32.h vfs.h
 mkfs.o:	fat32.h
 shell.o:	fat32.h
 
