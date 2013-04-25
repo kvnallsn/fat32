@@ -113,7 +113,9 @@ void changedir(char *dirname) {
 
     file_t file;
     file.name = strrchr(dirname, '/');
-    file.name++;    // Increase 1 past the last /
+    if (file.name == NULL) file.name = dirname;
+    else file.name++; // Increase 1 past the last /
+
     file.path = dirname;
     file.device = get_device(dirname);
     file.directory = 1;

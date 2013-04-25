@@ -398,7 +398,7 @@ int fat32_init(int dev) { //const char *device_name) {
  */
 int fat32_openfile(int pos, file_t *file, int cd) {
     fat_t fat = fat_table[file->device];
-    fat_direntry_t dirent;
+    fat_direntry_t fat_dirent;
     
     int len = strlen(file->path);
     char *path = calloc(len+1, sizeof(char));
@@ -431,27 +431,27 @@ int fat32_openfile(int pos, file_t *file, int cd) {
         unsigned char buff[cluster_size];
         read(device, buff, cluster_size);
         
-        dir_entry_t file;
+        dir_entry_t dirent;
         fat_direntry_t *dirent_p; 
         
-        while ((file = extract_dir_entry(&dir, cluster_size, buff)).name != NULL &&
-                strcmp(file.name, lvl) != 0);
+        while ((dirent = extract_dir_entry(&dir, cluster_size, buff)).name != NULL &&
+                strcmp(dirent.name, lvl) != 0);
 
-        if (file.name == NULL) {
+        if (dirent.name == NULL) {
             printf("Not found\n");
             break;
         }
-        dirent_p = (fat_direntry_t*)file.misc;
+        dirent_p = (fat_direntry_t*)dirent.misc;
         if (dirent_p == NULL) {printf("ERROR\n"); break;};
-        dirent = *dirent_p;
+        fat_dirent = *dirent_p;
         // If its a directory, reload info and recurse into it
-        if (dirent.attributes == 0x10) {
-            fat_offset =  get_cluster_location(&fat, (dirent.high_clu << 16) | dirent.low_clu);   
+        if (fat_dirent.attributes == 0x10) {
+            fat_offset =  get_cluster_location(&fat, (fat_dirent.high_clu << 16) | fat_dirent.low_clu);   
             strcat(dir.path, lvl);
             strcat(dir.path, "/");
             dir.offset = 0;
-            if (cd == 1 && strcmp(file.name, lvl) == 0) {
-                current_directory = (dirent.high_clu << 16) | dirent.low_clu;
+            if (cd == 1 && strcmp(file->name, lvl) == 0) {
+                current_directory = (fat_dirent.high_clu << 16) | fat_dirent.low_clu;
                 break;
             }
             lvl = strtok(NULL, "/");
@@ -463,7 +463,7 @@ int fat32_openfile(int pos, file_t *file, int cd) {
     
     close(device);
     
-    if (pos > 0) fat_file_table[pos] = dirent;
+    if (pos > 0) fat_file_table[pos] = fat_dirent;
     return pos;
 }
 
