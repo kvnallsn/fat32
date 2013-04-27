@@ -180,6 +180,11 @@ int fileread(int file, char *buffer, int count) {
     return num_read;
 }
 
+int deletefile(int file) {
+    /* Find file, set dir entry to 0xE5 */
+    /* Do NOT clear data/cluster */
+}
+
 void fileclose(int file) {
     if (file > FILE_LIMIT) { return; }
     
