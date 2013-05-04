@@ -595,16 +595,18 @@ dir_entry_t fat32_readdir(dir_t *dir) {
  * Update the directory table with a new file 
  */
 void fat32_writedir(file_t *file, int startclu) {
-    /*dir_t *dir = dirtable[file->directory];
-    / Get the FAT Information from the table of open mounted FATs /
-    fat_t fat = fat_table[dir->device];
-    / Open Device /
-    int device = open(mount_table[dir->device]->device_name, O_RDWR);
+    dir_t dir;
+    dir.device = file->device;
+    dir.offset = 0;
+    /* Get the FAT Information from the table of open mounted FATs */
+    fat_t fat = fat_table[dir.device];
+    /* Open Device */
+    int device = open(mount_table[dir.device]->device_name, O_RDWR);
     int rootdir = current_directory; 
         
     int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
-    int cluster = (dir->offset * 4) / cluster_size;
-    / Traverse FAT Table /
+    int cluster = (dir.offset * 4) / cluster_size;
+    /* Traverse FAT Table */
     for (int i = 0; i < cluster; i++) {
         rootdir = read_fat_table(device, &fat, rootdir);
     }
@@ -635,12 +637,12 @@ void fat32_writedir(file_t *file, int startclu) {
     unsigned char buff[cluster_size];
     read(device, buff, cluster_size);
     
-    / Loop through dir until end is found /
-    for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
+    /* Loop through dir until end is found */
+    for (int i = (dir.offset * 32); i < cluster_size / 4; i += 32) {
         unsigned char *b = buff + i;
         if (b[0] == 0x00) { 
             lseek(device, fat_offset + i, SEEK_SET);
-            / Write Long Filenames, then the directory entry /
+            /* Write Long Filenames, then the directory entry */
             for (int i = num_long; i > 0; i--) {
                 fat_long_direntry_t de = build_long_entry(i == num_long ? i | 0x40 : i, file->name, dirent.name);
                 write(device, &de, sizeof(de));
@@ -650,7 +652,7 @@ void fat32_writedir(file_t *file, int startclu) {
         }
     }    
    
-    close(device);   */
+    close(device);   
 }
 
 
