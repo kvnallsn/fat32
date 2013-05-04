@@ -171,6 +171,8 @@ int main(int argc, char **argv) {
             
             } else if (strcmp(cmd, "rm") == 0) {
                 rm(tokenize(input));
+            } else {
+                printf("%s: Command Not Found\n", input);
             }
         }
         
