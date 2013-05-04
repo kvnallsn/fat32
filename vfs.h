@@ -28,6 +28,7 @@ void closedir(int dir);
 
 int fileopen(const char *fname);
 int filewrite(int file, const char *buffer, int count);
+int deletefile(char *file);
 
 /*
  * Read a file opened with fileopen, placing the contents into buffer

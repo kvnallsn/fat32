@@ -31,7 +31,7 @@ DskSiztoSecPerClus_t DskTableFAT32[] = {
 
 fat_t fat_table[MOUNT_LIMIT];
 
-fat_direntry_t fat_file_table[FILE_LIMIT];
+fat_file_t fat_file_table[FILE_LIMIT];
 
 // Store the cluster number of current directory
 int current_directory;          
@@ -148,8 +148,7 @@ fat_long_direntry_t build_long_entry(int order, char *input, unsigned char *shor
     long_ent.checksum = lfn_checksum(shortname);
     long_ent.zero = 0x0000;
     
-    order = order & 0x9F;
-    int pos = (order - 1) * 13;
+    int pos = ((order & 0x9F) - 1) * 13;
     int s_pos = pos;
     int len = strlen(input);
     
@@ -167,9 +166,26 @@ fat_long_direntry_t build_long_entry(int order, char *input, unsigned char *shor
     long_ent.charset3[0] = (pos < len) ? input[pos++] : 0xFFFF;
     long_ent.charset3[1] = (pos < len) ? input[pos++] : 0xFFFF;
     
-    printf("[%d]\n", len - s_pos);
+    int end_pos = len - s_pos;
+    if ((order & 0x40) == 0x40) {
+        if (end_pos < 5) {
+            long_ent.charset1[end_pos] = 0x0000;
+        } else if (end_pos < 12) {
+            long_ent.charset2[end_pos - 5] = 0x0000;
+        } else if (end_pos < 13) {
+            long_ent.charset3[end_pos - 12] = 0x0000;
+        }
+    }
     
     return long_ent;
+}
+
+int change_directory(int path) {
+    return -1;
+}
+
+void update_dir_info() {
+
 }
 
 void update_fsinfo(const char *device_name, fat_fsinfo_t *info) {
@@ -280,9 +296,9 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
     for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
         de.dir = 0;
         unsigned char *b = buff + i;
-        //printf("[0x%02X]\n", b[0]);
+
         if (b[0] == 0x00) { de.name = NULL; break; }
-        if (b[0] == 0xE5) continue;     /* Skip Deleted Entry */
+        if (b[0] == 0xE5) { dir->offset++; continue; }    /* Skip Deleted Entry */
         if (b[11] == 0x0F) {
             int off = 0;
             int *off_ref = &off;
@@ -309,6 +325,72 @@ dir_entry_t extract_dir_entry(dir_t *dir, int cluster_size, unsigned char *buff)
         }
     }   
     return de;
+}
+
+int find_dir_cluster(fat_t *fat, file_t *file) {
+
+    int current_cluster = current_directory;;
+    if(file->name[0] == '/') {
+        printf("Starting from root\n");
+    } else {
+        printf("Starting from current dir\n");
+    }
+    
+    /* Navigate to directory */
+    int flen = strlen(file->name);
+    char path[flen];
+    strncpy(path, file->name, flen);
+    char *lvl = strtok(path, "/");  
+    
+    /* Create DIR structure */
+    dir_t dir;    
+    for (int i = flen - 1; i >= 0; i--) {
+        if (file->name[i] == '/') {
+            if (i == 0) {
+                file->name++;
+                dir.path = "/";
+            } else if (i == flen-1) {
+                file->name[i] = '\0';
+                dir.path = "/";
+            } else {
+                dir.path = file->name;
+                file->name = &(file->name[i+1]);
+                dir.path[i] = '\0';
+            }
+        }
+    }   
+    dir.offset = 0;
+    dir.device = file->device;
+   
+    int device = open(mount_table[file->device]->device_name, O_RDONLY);
+    int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
+      
+   
+    do {    
+        int fat_offset = get_cluster_location(fat, current_cluster);
+        
+        lseek(device, fat_offset, SEEK_SET);
+        unsigned char buff[cluster_size];
+        read(device, buff, cluster_size);
+        
+        dir_entry_t dirent;
+        
+        /* Keep going until the file is found */
+        while (1) {
+            dirent = extract_dir_entry(&dir, cluster_size, buff);
+            if (dirent.name == NULL || strcmp(dirent.name, lvl) == 0) { break; }
+        }
+        
+        if (dirent.name == NULL) {
+            printf("%s: File Not found\n", file->name);
+            break;
+        } else {
+            return fat_offset + (dir.offset * 32);
+        }
+    
+    } while ((current_cluster = read_fat_table(device, fat, current_cluster)) < 0x0FFFFFF7); 
+    
+    return 0;    
 }
 
 int fat32_read(int dev, int cluster, int offset, void *buffer, int count) {
@@ -413,13 +495,14 @@ int fat32_openfile(int pos, file_t *file, int cd) {
     dir.device = file->device;
     dir.path = calloc(len+1, sizeof(char));
     dir.path[0] = '/';
+    printf("Path: [%s]\n", path);
     
     /* Navigate to directory */
     char *lvl = strtok(path, "/");
     
     int current_cluster = current_directory;
     
-    int device = open(mount_table[dir.device]->device_name, O_RDWR);
+    int device = open(mount_table[dir.device]->device_name, O_RDONLY);
     int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
     int cluster = (dir.offset * 4) / cluster_size;     // 4 for # of bytes in 32-bits, cluster to stop at
    
@@ -477,7 +560,7 @@ int fat32_openfile(int pos, file_t *file, int cd) {
     
     close(device);
     
-    if (pos > 0) fat_file_table[pos] = fat_dirent;
+    if (pos > 0) fat_file_table[pos].dir_ent = fat_dirent;
     return pos;
 }
 
@@ -512,16 +595,16 @@ dir_entry_t fat32_readdir(dir_t *dir) {
  * Update the directory table with a new file 
  */
 void fat32_writedir(file_t *file, int startclu) {
-    dir_t *dir = dirtable[file->directory];
-    /* Get the FAT Information from the table of open mounted FATs */
+    /*dir_t *dir = dirtable[file->directory];
+    / Get the FAT Information from the table of open mounted FATs /
     fat_t fat = fat_table[dir->device];
-    /* Open Device */
+    / Open Device /
     int device = open(mount_table[dir->device]->device_name, O_RDWR);
     int rootdir = current_directory; 
         
     int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
     int cluster = (dir->offset * 4) / cluster_size;
-    /* Traverse FAT Table */
+    / Traverse FAT Table /
     for (int i = 0; i < cluster; i++) {
         rootdir = read_fat_table(device, &fat, rootdir);
     }
@@ -552,12 +635,12 @@ void fat32_writedir(file_t *file, int startclu) {
     unsigned char buff[cluster_size];
     read(device, buff, cluster_size);
     
-    /* Loop through dir until end is found */
+    / Loop through dir until end is found /
     for (int i = (dir->offset * 32); i < cluster_size / 4; i += 32) {
         unsigned char *b = buff + i;
         if (b[0] == 0x00) { 
             lseek(device, fat_offset + i, SEEK_SET);
-            /* Write Long Filenames, then the directory entry */
+            / Write Long Filenames, then the directory entry /
             for (int i = num_long; i > 0; i--) {
                 fat_long_direntry_t de = build_long_entry(i == num_long ? i | 0x40 : i, file->name, dirent.name);
                 write(device, &de, sizeof(de));
@@ -567,14 +650,14 @@ void fat32_writedir(file_t *file, int startclu) {
         }
     }    
    
-    close(device);   
+    close(device);   */
 }
 
 
 int fat32_readfile(int file, void *buffer, int count) {
     file_t *fp = &(filetable[file]);
     
-    fat_direntry_t *fat_dirent = &(fat_file_table[file]);
+    fat_direntry_t *fat_dirent = &(fat_file_table[file].dir_ent);
     
     int cluster = (fat_dirent->high_clu << 16) | fat_dirent->low_clu;
     
@@ -584,6 +667,34 @@ int fat32_readfile(int file, void *buffer, int count) {
     fp->offset += nr;
 
     return nr;
+}
+
+int fat32_deletefile(file_t *file) {
+    // Load file
+    printf("[%s]\n", file->name);
+    fat_t fat = fat_table[file->device];
+    int pos = find_dir_cluster(&fat, file);
+    printf("Exact Pos: [0x%08X]\n", pos);
+    
+    int device = open(mount_table[file->device]->device_name, O_RDWR);    
+    int stop = 0;
+    int i = 0;
+    do {
+        pos -= 32;
+        lseek(device, pos, SEEK_SET);
+        char buff[32];
+        read(device, buff, 32);
+        if (buff[11] == 0x0F && (buff[0] & 0x40) == 0x40) stop = 1;
+        lseek(device, pos, SEEK_SET);
+        char del = 0xE5;
+        write(device, &del, 1);
+        lseek(device, pos, SEEK_SET);
+        ++i;
+    } while (!stop);
+    
+    close(device);
+    
+    return -1;
 }
 
 

@@ -14,8 +14,8 @@ dir_t *dirtable[FILE_LIMIT];
 int next_file_pos = 0;
 
 fs_table_t fs_table[] = {
-    {fat32_init, fat32_openfile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
-    {fat32_init, fat32_openfile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
+    {fat32_init, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
+    {fat32_init, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
 };
 
 mount_t *mount_table[MOUNT_LIMIT];
@@ -89,6 +89,22 @@ int get_next_table_pos(void *table, int limit) {
     return -1;
 }
 
+void init_file(file_t *file, const char *name) {
+    
+    char *npos = strrchr(name, '/'); int sz = strlen(++npos);    
+    file->name = calloc(sz, sizeof(char));
+    strncpy(file->name, npos, sz);
+    
+    file->path = calloc(strlen(name), sizeof(char));
+    strncpy(file->path, name, strlen(name));
+    
+    file->device = get_device(name);
+    
+    // byte offset in file
+    file->offset = 0;
+    file->size = 0;
+}
+
 int opendir(const char *path) {    
     dir_t *dir = calloc(1, sizeof(dir_t));
     
@@ -118,7 +134,6 @@ void changedir(char *dirname) {
 
     file.path = dirname;
     file.device = get_device(dirname);
-    file.directory = 1;
     file.offset = 0;
     file.size = 0;
 
@@ -138,21 +153,8 @@ void closedir(int dir) {
 }
 
 int fileopen(const char *fname) {
-    
     int pos = get_next_table_pos(filetable, FILE_LIMIT);
-    char *npos = strrchr(fname, '/'); int sz = strlen(++npos);    
-    filetable[pos].name = calloc(sz, sizeof(char));
-    strncpy(filetable[pos].name, npos, sz);
-    
-    filetable[pos].path = calloc(strlen(fname), sizeof(char));
-    strncpy(filetable[pos].path, fname, strlen(fname));
-    filetable[pos].directory = opendir(filetable[pos].path);
-    
-    filetable[pos].device = get_device(fname);
-    
-    // byte offset in file
-    filetable[pos].offset = 0;
-    filetable[pos].size = 0;
+    init_file(&filetable[pos], fname);
         
     mount_t *mp = mount_table[filetable[pos].device];
     fs_table[mp->fs_type].openfile(pos, &filetable[pos], 0);
@@ -180,9 +182,15 @@ int fileread(int file, char *buffer, int count) {
     return num_read;
 }
 
-int deletefile(int file) {
+int deletefile(char *file) {
     /* Find file, set dir entry to 0xE5 */
     /* Do NOT clear data/cluster */
+    file_t f;
+    f.name = file;
+    f.device = get_device(file);
+    fs_table[mount_table[f.device]->fs_type].deletefile(&f);
+    
+    return 0;
 }
 
 void fileclose(int file) {

@@ -23,7 +23,6 @@ typedef struct fileinfo_s {
     char    *path;
     char    *name;
     int     device;
-    int     directory;
     int     offset;
     int     size;
 } file_t;
@@ -37,7 +36,8 @@ typedef struct dir_info {
 typedef struct dir_entry {
     char    *name;
     int     time;
-    int     offset; // Offset is # of 32-bit entries from the start of the cluster
+    // Offset is # of 32-bit entries from the start of the cluster
+    int     offset; 
     int     dir;
     void    *misc;
 } dir_entry_t;
@@ -45,6 +45,7 @@ typedef struct dir_entry {
 typedef struct fs_table_s {
     int (*init)(int);
     int (*openfile)(int, file_t*, int cd);
+    int (*deletefile)(file_t*);
     int (*read)(int,void*,int);
     int (*write)(int, const void*,int);
     dir_entry_t (*readdir)(dir_t*);

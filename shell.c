@@ -110,11 +110,11 @@ void cat(arg_info_t args) {
     }
     
     int fp = fileopen(prepend_path(args.argv[0]));
-    int nr = 0;
+    /*int nr = 0;
     char buffer[512];
     while ((nr = fileread(fp, buffer, 512)) > 0) {
         printf("%s", buffer);
-    }
+    }*/
     fileclose(fp);
 }
 
@@ -126,14 +126,24 @@ void cd(arg_info_t args) {
     changedir(args.argv[0]);
 }
 
+void rm(arg_info_t args) {
+    if (args.argc != 1) {
+        printf("usage: rm file\n");
+        return;
+    } 
+    
+    //int fp = fileopen(prepend_path());
+    deletefile(args.argv[0]);
+}
+
 int main(int argc, char **argv) {
 
     char *input;
-    
+
     /* Temporarily auto mount hello */
     //mount_fs("hello", "/");
     mount_fs("/dev/sde1", "/");
-    
+
     while (1) {
         printf("> ");
         input = calloc(80, sizeof(char));
@@ -157,6 +167,10 @@ int main(int argc, char **argv) {
                 cat(tokenize(input));
             } else if (strcmp(cmd, "cd") == 0) {
                 cd(tokenize(input));
+            } else if (strcmp(cmd, "pwd") == 0) {
+            
+            } else if (strcmp(cmd, "rm") == 0) {
+                rm(tokenize(input));
             }
         }
         

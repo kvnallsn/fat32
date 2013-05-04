@@ -59,7 +59,8 @@ typedef struct fat_BS {
 	unsigned int 		hidden_sector_count;
 	unsigned int 		total_sectors_32;
  
-	//this will be cast to it's specific type once the driver actually knows what type of FAT this is.
+	//this will be cast to it's specific type once the 
+    // driver actually knows what type of FAT this is.
 	unsigned char		extended_section[54];
  
 }__attribute__((packed)) fat_BS_t;
@@ -108,6 +109,12 @@ typedef struct fat_s {
     int n_clusters;
 } fat_t;
 
+typedef struct fat_file {
+    char            *longname;
+    fat_direntry_t  dir_ent;    
+    int             dir_ent_pos;
+} fat_file_t;
+
 /* Extern Variables */
 extern uint8_t              DskTableFAT16_NumEntries;
 extern uint8_t              DskTableFAT32_NumEntries;
@@ -118,6 +125,7 @@ extern DskSiztoSecPerClus_t DskTableFAT32[];
 int fat32_init(int dev);
 int fat32_openfile(int pos, file_t *file, int cd);
 int fat32_readfile(int file, void *buffer, int count);
+int fat32_deletefile(file_t *file);
 int fat32_write(int file, const void* buffer, int count);
 dir_entry_t fat32_readdir(dir_t *dir);
 int fat32_teardown();
