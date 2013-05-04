@@ -82,7 +82,7 @@ unsigned char lfn_checksum(const unsigned char *filename) {
 }
 
 /*
- * Generates and 8.3 representation of a filename
+ * Generates an 8.3 representation of a filename
  * 
  * @param   input       Filename to convert to 8.3
  *
@@ -495,7 +495,6 @@ int fat32_openfile(int pos, file_t *file, int cd) {
     dir.device = file->device;
     dir.path = calloc(len+1, sizeof(char));
     dir.path[0] = '/';
-    printf("Path: [%s]\n", path);
     
     /* Navigate to directory */
     char *lvl = strtok(path, "/");
@@ -526,7 +525,6 @@ int fat32_openfile(int pos, file_t *file, int cd) {
                 strcmp(dirent.name, lvl) != 0);
 
         if (dirent.name == NULL) {
-            printf("Not found\n");
             break;
         }
         
@@ -541,7 +539,6 @@ int fat32_openfile(int pos, file_t *file, int cd) {
             /* If this is a change directory command and we found the right dir,
              * then updated the current_directory and break out of the loop */
             if (cd == 1 && strcmp(file->name, lvl) == 0) {
-                printf("Cluster: [%d]\n", fat_offset);
                 current_directory = (fat_dirent.high_clu << 16) | fat_dirent.low_clu;
                 if (current_directory == 0) {
                     // Reload Root Directory
@@ -611,8 +608,6 @@ void fat32_writedir(file_t *file, int startclu) {
         rootdir = read_fat_table(device, &fat, rootdir);
     }
     
-    printf("[FAT_WRITE]: Dir at: %d\n", rootdir);
-    
     fat_direntry_t dirent;
     char *filename = gen_basis_name(file->name);
     for (int i = 0; i < 11; i++) dirent.name[i] = filename[i];
@@ -673,10 +668,8 @@ int fat32_readfile(int file, void *buffer, int count) {
 
 int fat32_deletefile(file_t *file) {
     // Load file
-    printf("[%s]\n", file->name);
     fat_t fat = fat_table[file->device];
     int pos = find_dir_cluster(&fat, file);
-    printf("Exact Pos: [0x%08X]\n", pos);
     
     int device = open(mount_table[file->device]->device_name, O_RDWR);    
     int stop = 0;
@@ -708,8 +701,7 @@ int fat32_write(int file, const void* buffer, int count) {
     /* Determine # of clusters needed */
     int clusize = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
     int clusters_needed = count / clusize + (count % clusize == 0 ? 0 : 1);
-    printf("[FAT_WRITE] Allocating [%d] clusters of size [%d] bytes\n", clusters_needed, clusize);
-    
+
     /* Open Device */
     int device = open(mount_table[fp->device]->device_name, O_RDWR);
     
@@ -723,7 +715,6 @@ int fat32_write(int file, const void* buffer, int count) {
         /* Find an empty cluster */        
         while (read_fat_table(device, &fat, cluster) >= 0x0FFFFFF7) ++cluster;
 
-        printf("[FAT_WRITE] Found free cluster [%d]\n", cluster);
         if (filled_clusters > 0) write_fat_table(device, &fat, last_cluster, cluster);
         else first_cluster = cluster;
         
