@@ -113,6 +113,8 @@ typedef struct fat_file {
     char            *longname;
     fat_direntry_t  dir_ent;    
     int             offset;
+    int             beg_marker;
+    int             eof_marker;
 } fat_file_t;
 
 /* Extern Variables */

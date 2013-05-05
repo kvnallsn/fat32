@@ -160,13 +160,16 @@ void closedir(int dir) {
     if (directory != NULL) free(directory);
 }
 
-int fileopen(const char *fname) {
+int fileopen(const char *fname, int mode) {
     int pos = get_next_table_pos(filetable, FILE_LIMIT);
     init_file(&filetable[pos], fname);
         
     mount_t *mp = mount_table[filetable[pos].device];
     int npos = fs_table[mp->fs_type].openfile(pos, &filetable[pos], 0);
     if (npos == -1) close_file(pos);
+    
+    if (mode == APPEND) filetable[pos].offset += filetable[pos].size;
+    
     return npos;
 }
 

@@ -98,7 +98,7 @@ void touch(arg_info_t args) {
         return;
     }
     
-    int fp = fileopen(prepend_path(args.argv[0]));
+    int fp = fileopen(prepend_path(args.argv[0]), APPEND);
     filewrite(fp, "", 1);
     fileclose(fp);
 }
@@ -109,7 +109,7 @@ void cat(arg_info_t args) {
         return;
     }
     
-    int fp = fileopen(prepend_path(args.argv[0]));
+    int fp = fileopen(prepend_path(args.argv[0]), BEGIN);
     if (fp == -1) { printf("cat: %s: No Such File or Directory\n", args.argv[0]); return; }
     int nr = 0;
     char buffer[512];
@@ -143,7 +143,7 @@ void in(arg_info_t args) {
         return;
     } 
     
-    int fp = fileopen(prepend_path(args.argv[1]));
+    int fp = fileopen(prepend_path(args.argv[1]), APPEND);
     if (fp == -1) { printf("Error\n"); }
     filewrite(fp, args.argv[0], strlen(args.argv[0]));
     fileclose(fp);

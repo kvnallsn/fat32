@@ -418,14 +418,24 @@ int find_free_cluster(char *dev, fat_t *fat, int cluster) {
  *
  * @return          The total amount of data written
  */ 
-int fat32_writedata(char *dev, fat_t *fat, int cluster, int offset, const void *buffer, int count) { 
-  
+int fat32_writedata(int file, int cluster, const void *buffer, int count) { 
+    // Get the FAT/File Information
+    file_t *fp = &(filetable[file]);
+    fat_file_t *f =  &(fat_file_table[file]);
+    fat_t *fat = &(fat_table[fp->device]);  
+    
     //printf("Curr Clu: <<%d>>\n", cluster);
     //int cluster_size = 5;
     int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
-    int clu_offset = offset % cluster_size;
+    int clu_offset = fp->offset % cluster_size;    
     int total_written = 0;
-    int device = open(dev, O_RDWR);
+    int device = open(mount_table[fp->device]->device_name, O_RDWR);
+    
+    // Seek to cluster to start at
+    for (int i = 0; i < (fp->offset / cluster_size); i++) {
+        cluster = read_fat_table(device, fat, cluster);
+    }    
+    
     while (count > 0) {
         // Determine amount of data to write
         int amt_to_write = (clu_offset + count) >= cluster_size ? count - (cluster_size - clu_offset) : count;
@@ -440,8 +450,10 @@ int fat32_writedata(char *dev, fat_t *fat, int cluster, int offset, const void *
         total_written += amt_written;
         count -= amt_written;
 
+        if (loc + amt_written > f->eof_marker) f->eof_marker = loc + amt_written;
+        
         if (count > 0) { 
-            int next_cluster = find_free_cluster(dev, fat, cluster+1);
+            int next_cluster = find_free_cluster(mount_table[fp->device]->device_name, fat, cluster+1);
             write_fat_table(device, fat, cluster, next_cluster);
             cluster = next_cluster;
             clu_offset = 0;
@@ -580,7 +592,6 @@ int fat32_openfile(int pos, file_t *file, int cd) {
         dirent_p = (fat_direntry_t*)dirent.misc;
         if (dirent_p == NULL) {printf("ERROR\n"); break;};
         fat_dirent = *dirent_p;
-        //printf("<[%d][%d][%d]>\n", dir.offset * 32, fat_offset, dir.offset * 32 + fat_offset - 32);
         
         /* If its a directory, reload info and recurse into it */
         if (fat_dirent.attributes == 0x10) {
@@ -603,6 +614,11 @@ int fat32_openfile(int pos, file_t *file, int cd) {
         } else {
             fat_file_table[pos].dir_ent = *dirent_p;
             fat_file_table[pos].offset = dir.offset * 32 + fat_offset - 32;
+            fat_file_table[pos].beg_marker = get_cluster_location(&fat, (dirent_p->high_clu << 16) | dirent_p->low_clu);
+            //printf("0x%08X\n", fat_file_table[pos].beg_marker);
+            fat_file_table[pos].eof_marker = fat_file_table[pos].beg_marker + dirent_p->size;
+            //printf("0x%08X\n", fat_file_table[pos].eof_marker);
+            file->size = dirent_p->size;
             break;
         }
     }
@@ -745,24 +761,27 @@ int fat32_deletefile(file_t *file) {
 int fat32_write(int file, const void *buffer, int count) {
     // Get the FAT/File Information
     file_t *fp = &(filetable[file]);
-    fat_file_t f =  fat_file_table[file];
+    fat_file_t *f =  &(fat_file_table[file]);
     fat_t fat = fat_table[fp->device];    
 
-    int cluster = (f.dir_ent.high_clu << 16) | f.dir_ent.low_clu;
+    int cluster = (f->dir_ent.high_clu << 16) | f->dir_ent.low_clu;
     if (cluster == 0) {
         // Find a cluster to start in, because the current cluster in the dir entry is 0
         cluster = find_free_cluster(mount_table[fp->device]->device_name, &fat, cluster);
     }
-    int wrote = fat32_writedata(mount_table[fp->device]->device_name, &fat, cluster, fp->offset, buffer, count);
+    int wrote = fat32_writedata(file, cluster, buffer, count);
+    //int wrote = fat32_writedata(mount_table[fp->device]->device_name, &fat, cluster, fp->offset, buffer, count);
+    fp->offset += wrote;
     
-    // Load dir entry
-    f.dir_ent.high_clu = (cluster >> 16);
-    f.dir_ent.low_clu = (cluster & 0xFFFF);
-    f.dir_ent.size += wrote;
+    // Update Directory Entry
+    f->dir_ent.high_clu = (cluster >> 16);
+    f->dir_ent.low_clu = (cluster & 0xFFFF);
     
     int device = open(mount_table[fp->device]->device_name, O_RDWR);
-    lseek(device, f.offset, SEEK_SET);
-    write(device, &(f.dir_ent), 32);
+    f->dir_ent.size = f->eof_marker - f->beg_marker;
+
+    lseek(device, f->offset, SEEK_SET);
+    write(device, &(f->dir_ent), 32);
     close(device);
     
     return wrote;

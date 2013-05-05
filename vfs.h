@@ -18,6 +18,9 @@
 #include "fs_types.h"
 #include "fat32.h"
 
+#define BEGIN       0
+#define APPEND      1
+
 void mount_fs(const char *device_name, const char *path);
 void unmount_fs(const char *mount_point);
 
@@ -26,7 +29,7 @@ dir_entry_t readdir(int dir);
 void changedir(char *dirname);
 void closedir(int dir);
 
-int fileopen(const char *fname);
+int fileopen(const char *fname, int mode);
 int filewrite(int file, const char *buffer, int count);
 int deletefile(char *file);
 
