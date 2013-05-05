@@ -424,10 +424,12 @@ int fat32_writedata(char *dev, fat_t *fat, int cluster, int offset, const void *
     //int cluster_size = 5;
     int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
     int clu_offset = offset % cluster_size;
-    int amt_to_write = (clu_offset + count) >= cluster_size ? count - (cluster_size - clu_offset) : count;
     int total_written = 0;
     int device = open(dev, O_RDWR);
     while (count > 0) {
+        // Determine amount of data to write
+        int amt_to_write = (clu_offset + count) >= cluster_size ? count - (cluster_size - clu_offset) : count;
+            
         // Seek to cluster
         int loc = get_cluster_location(fat, cluster) + clu_offset;
         
@@ -442,6 +444,7 @@ int fat32_writedata(char *dev, fat_t *fat, int cluster, int offset, const void *
             int next_cluster = find_free_cluster(dev, fat, cluster+1);
             write_fat_table(device, fat, cluster, next_cluster);
             cluster = next_cluster;
+            clu_offset = 0;
             //printf("Next Clu: <<%d>>\n", cluster);
         } else {
             write_fat_table(device, fat, cluster, 0x0FFFFFFF);
