@@ -112,7 +112,7 @@ typedef struct fat_s {
 typedef struct fat_file {
     char            *longname;
     fat_direntry_t  dir_ent;    
-    int             dir_ent_pos;
+    int             offset;
 } fat_file_t;
 
 /* Extern Variables */

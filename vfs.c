@@ -105,6 +105,14 @@ void init_file(file_t *file, const char *name) {
     file->size = 0;
 }
 
+void close_file(int pos) {
+    free(filetable[pos].name);
+    free(filetable[pos].path);
+    filetable[pos].device = 0;
+    filetable[pos].offset = 0;
+    filetable[pos].size = 0;
+}
+
 int opendir(const char *path) {    
     dir_t *dir = calloc(1, sizeof(dir_t));
     
@@ -157,9 +165,9 @@ int fileopen(const char *fname) {
     init_file(&filetable[pos], fname);
         
     mount_t *mp = mount_table[filetable[pos].device];
-    fs_table[mp->fs_type].openfile(pos, &filetable[pos], 0);
-    
-    return pos;
+    int npos = fs_table[mp->fs_type].openfile(pos, &filetable[pos], 0);
+    if (npos == -1) close_file(pos);
+    return npos;
 }
 
 int filewrite(int file, const char *buffer, int count) {
