@@ -146,8 +146,7 @@ void in(arg_info_t args) {
     int fp = fileopen(prepend_path(args.argv[1]), APPEND);
     if (fp == -1) { printf("Error\n"); }
     filewrite(fp, args.argv[0], strlen(args.argv[0]));
-    fileclose(fp);
-    
+    fileclose(fp);    
 }
 
 int main(int argc, char **argv) {
