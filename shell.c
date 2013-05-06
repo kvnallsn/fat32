@@ -187,6 +187,8 @@ void revert(arg_info_t args) {
     
     int fp = fileopen(prepend_path(args.argv[0]), APPEND);
     if (fp == -1) { printf("Error\n"); }
+    filerevert(fp, atoi(args.argv[1]));
+    fileclose(fp);
 }
 
 int main(int argc, char **argv) {
@@ -230,6 +232,8 @@ int main(int argc, char **argv) {
                 echoa(tokenize(input));
             } else if (strcmp(cmd, "revs") == 0) {
                 revprint(tokenize(input));
+            } else if (strcmp(cmd, "revert") == 0) {
+                revert(tokenize(input));
             } else {
                 printf("%s: Command Not Found\n", input);
             }

@@ -56,6 +56,7 @@ typedef struct fs_table_s {
 
 typedef struct fs_rev_table {
     int (*getrevision)(int, int);
+    int (*revert)(int, int);
 } fs_rev_table_t;
 
 extern file_t filetable[];

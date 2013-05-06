@@ -194,6 +194,41 @@ int insert_revision(int device, fat_t *fat, int pos, int cluster) {
     return cluster;
 }
 
+void revert_to_revision(int device, fat_t *fat, int pos, int revision) {
+    int vers_loc = get_cluster_location(fat, fat->bs->vers_table_cluster) + (pos * sizeof(fat_vers_t));    
+    int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
+    if (pos > (cluster_size / 4)) { return; }
+    
+    // Read the vers table
+    fat_vers_t vers;
+    lseek(device, vers_loc, SEEK_SET);
+    read(device, &vers, sizeof(fat_vers_t));
+    
+    // Move the revisions based on the input
+    switch (revision) {
+        case 3:
+            vers.vcurr = vers.v3;
+            vers.v3 = 1;
+            vers.v2 = 0;
+            vers.v3 = 0;
+            break;
+        case 2:
+            vers.vcurr = vers.v2;
+            vers.v1 = vers.v3;
+            vers.v2 = 0;
+            vers.v3 = 0;
+        case 1:
+            vers.vcurr = vers.v1;
+            vers.v1 = vers.v2;
+            vers.v2 = vers.v3;
+            vers.v3 = 0;
+    }    
+    
+    // Rewrite the vers table
+    lseek(device, vers_loc, SEEK_SET);
+    write(device, &vers, sizeof(fat_vers_t));    
+}
+
 /*********** Local Functions ***************/
 
 /*
@@ -876,7 +911,7 @@ void fat32_writedir(file_t *file, int startclu) {
 int skinny28_getrevision(int file, int index) {
     
     // Get the FAT/File Information
-    file_t *fp = &(filetable[file]);\
+    file_t *fp = &(filetable[file]);
     fat_file_t *f =  &(fat_file_table[file]);
     fat_t fat = fat_table[fp->device];    
     
@@ -900,6 +935,24 @@ int skinny28_getrevision(int file, int index) {
         default: return -1;
     }
 
+}
+
+int skinny28_revert(int file, int revision) {
+
+    if (revision > 3) return -1;
+    
+    // Get the FAT/File Information
+    file_t *fp = &(filetable[file]);
+    fat_file_t *f =  &(fat_file_table[file]);
+    fat_t fat = fat_table[fp->device];   
+    
+    int pos = (f->dir_ent.high_clu << 16) | f->dir_ent.low_clu;
+    
+    int device = open(mount_table[fp->device]->device_name, O_RDWR);
+    revert_to_revision(device, &fat, pos, revision);
+    close(device);
+    
+    return 0;
 }
 
 int fat32_readfile(int file, void *buffer, int count) {
