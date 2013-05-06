@@ -160,13 +160,25 @@ void echoa(arg_info_t args) {
     fileclose(fp);    
 }
 
+void revprint(arg_info_t args) {
+    if (args.argc != 2) {
+        printf("usage: revs file\n");
+        return;
+    }     
+    
+    int fp = fileopen(prepend_path(args.argv[0]), APPEND);
+    if (fp == -1) { printf("Error\n"); }
+    
+    fileclose(fp);    
+}
+
 int main(int argc, char **argv) {
 
     char *input;
 
     /* Temporarily auto mount hello */
-    //mount_fs("hello", "/");
-    mount_fs("/dev/sde1", "/");
+    mount_fs("revtest", "/");
+    //mount_fs("/dev/sde1", "/");
 
     while (1) {
         printf("> ");
@@ -199,6 +211,8 @@ int main(int argc, char **argv) {
                 echo(tokenize(input));
             } else if (strcmp(cmd, "echoa") == 0) {
                 echoa(tokenize(input));
+            } else if (strcmp(cmd, "revs") == 0) {
+                revprint(tokenize(input));
             } else {
                 printf("%s: Command Not Found\n", input);
             }

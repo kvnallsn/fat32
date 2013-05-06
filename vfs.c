@@ -182,6 +182,13 @@ int fileopen(const char *fname, int mode) {
     return npos;
 }
 
+int filegetrevisions(int file) {
+    if (file > FILE_LIMIT) { return -1; }
+    file_t *fp = &(filetable[file]);
+    
+    return -1;
+}
+
 int filewrite(int file, const char *buffer, int count) {
     if (file > FILE_LIMIT) { return -1; }
     file_t *fp = &(filetable[file]);

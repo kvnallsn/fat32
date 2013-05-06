@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
     boot_sector->sectors_per_cluster = opts.clusters;
     boot_sector->reserved_sector_count = 32;
     boot_sector->table_count = 2;
-    boot_sector->root_entry_count = 0;
+    boot_sector->vers_table_cluster = 3;
     boot_sector->total_sectors_16 = 0;      /* 0 -- See Total_Sectors_32 */
     boot_sector->media_type = 0xF8;
     boot_sector->table_size_16 = 0;         /* 0 for Fat32 */
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
     boot_sector->total_sectors_32 = opts.size / boot_sector->bytes_per_sector;;
     
     /* Compute # Sectors in FAT -- Algorithm according to MS FAT Specification 1.03 */
-    int root_dir_sectors = ((boot_sector->root_entry_count * 32) + (boot_sector->bytes_per_sector - 1)) / boot_sector->bytes_per_sector;
+    int root_dir_sectors = (boot_sector->bytes_per_sector - 1) / boot_sector->bytes_per_sector;
     int tmpval1 = boot_sector->total_sectors_32 - (boot_sector->reserved_sector_count + root_dir_sectors);
     int tmpval2 = (256 * boot_sector->sectors_per_cluster) + boot_sector->table_count;
     if (fattype == FAT32) {
@@ -245,6 +245,7 @@ int main(int argc, char **argv) {
     fat_table[0] = 0x0FFFFF00 | boot_sector->media_type;
     fat_table[1] = 0x0FFFFFFF;
     fat_table[2] = 0x0FFFFF00 | boot_sector->media_type;
+    fat_table[3] = 0x0FFFFFFF;
         
     FILE *fp = fopen(opts.device, "r+");
     if (fp == NULL) {

@@ -50,7 +50,7 @@ typedef struct fat_BS {
 	unsigned char		sectors_per_cluster;
 	unsigned short		reserved_sector_count;
 	unsigned char		table_count;
-	unsigned short		root_entry_count;
+	unsigned short		vers_table_cluster;
 	unsigned short		total_sectors_16;
 	unsigned char		media_type;
 	unsigned short		table_size_16;
@@ -95,6 +95,13 @@ typedef struct fat_long_direntry {
     unsigned short      zero;
     unsigned short      charset3[2];
 }__attribute__((packed)) fat_long_direntry_t;
+
+typedef struct fat_vers {
+    unsigned int vcurr;
+    unsigned int v1;
+    unsigned int v2;
+    unsigned int v3;
+}__attribute__((packed)) fat_vers_t;
 
 typedef struct DskSiztoSecPerClus {
     uint32_t            DiskSize;

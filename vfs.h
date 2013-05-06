@@ -31,6 +31,7 @@ void closedir(int dir);
 
 int filecreate(const char *name);
 int fileopen(const char *fname, int mode);
+int filegetrevisions(int file);
 int filewrite(int file, const char *buffer, int count);
 int deletefile(char *file);
 
