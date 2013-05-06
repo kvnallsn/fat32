@@ -873,6 +873,35 @@ void fat32_writedir(file_t *file, int startclu) {
 }
 
 
+int skinny28_getrevision(int file, int index) {
+    
+    // Get the FAT/File Information
+    file_t *fp = &(filetable[file]);\
+    fat_file_t *f =  &(fat_file_table[file]);
+    fat_t fat = fat_table[fp->device];    
+    
+    int pos = (f->dir_ent.high_clu << 16) | f->dir_ent.low_clu;
+    
+    int vers_loc = get_cluster_location(&fat, fat.bs->vers_table_cluster);    
+    int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
+    if (pos > (cluster_size / 4)) { return -1; }
+    
+    int device = open(mount_table[fp->device]->device_name, O_RDWR);
+    lseek(device, vers_loc + (pos * sizeof(fat_vers_t)), SEEK_SET);
+    fat_vers_t vers;
+    read(device, &vers, sizeof(fat_vers_t));
+    close(device);
+    
+    switch (index) {
+        case 0: return vers.vcurr;
+        case 1: return vers.v1;
+        case 2: return vers.v2;
+        case 3: return vers.v3;
+        default: return -1;
+    }
+
+}
+
 int fat32_readfile(int file, void *buffer, int count) {
     file_t *fp = &(filetable[file]);
     fat_file_t *f = &(fat_file_table[file]);
@@ -928,9 +957,7 @@ int fat32_write(int file, const void *buffer, int count) {
 
     // Always search for a new cluster b/c of revisions!
     // Find a cluster to start in, because the current cluster in the dir entry is 0
-    printf("[[%d]]\n", cluster);
     cluster = find_free_cluster(mount_table[fp->device]->device_name, &fat, cluster);
-    printf("[[[%d]]]\n", cluster);
     insert_revision(device, &fat, vers_pos, cluster);
      
     // reset beg/eof markers
@@ -939,10 +966,6 @@ int fat32_write(int file, const void *buffer, int count) {
 
     int wrote = fat32_writedata(file, cluster, buffer, count);
     fp->offset += wrote;
-    
-    // Update Directory Entry
-    /*f->dir_ent.high_clu = (cluster >> 16);
-    f->dir_ent.low_clu = (cluster & 0xFFFF);*/
     
     f->dir_ent.size = f->eof_marker - f->beg_marker;
 

@@ -161,7 +161,7 @@ void echoa(arg_info_t args) {
 }
 
 void revprint(arg_info_t args) {
-    if (args.argc != 2) {
+    if (args.argc != 1) {
         printf("usage: revs file\n");
         return;
     }     
@@ -169,7 +169,24 @@ void revprint(arg_info_t args) {
     int fp = fileopen(prepend_path(args.argv[0]), APPEND);
     if (fp == -1) { printf("Error\n"); }
     
+    
+    int rclus = -1;
+    for (int i = 0; ((rclus = filegetrevision(fp, i)) != -1); i++) {
+        (i == 0) ? printf("Current: ") : printf("%6d: ", i);
+        printf("[%d]\n", rclus);
+    }
+    
     fileclose(fp);    
+}
+
+void revert(arg_info_t args) {
+    if (args.argc != 2) {
+        printf("usage: revert file revision\n");
+        return;
+    }     
+    
+    int fp = fileopen(prepend_path(args.argv[0]), APPEND);
+    if (fp == -1) { printf("Error\n"); }
 }
 
 int main(int argc, char **argv) {

@@ -15,10 +15,26 @@ int next_file_pos = 0;
 
 fs_table_t fs_table[] = {
     {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
+    {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
     {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
 };
 
+fs_rev_table_t fs_rev_table[] = {
+    {NULL},
+    {NULL},
+    {skinny28_getrevision}
+};
+
 mount_t *mount_table[MOUNT_LIMIT];
+
+int supports_revisioning(int fstype) {
+    switch (fstype) {
+        case FAT16: 
+        case FAT32: return 0;
+        case SKINNY28: return 1;
+        default: return 0;
+    }
+}
 
 void mount_fs(const char *device_name, const char *path) {
     int mount_pos;
@@ -32,7 +48,7 @@ void mount_fs(const char *device_name, const char *path) {
     strncpy(newmount->device_name, device_name, strlen(device_name));
     newmount->path = calloc(strlen(path)+1, sizeof(char));
     strncpy(newmount->path, path, strlen(path));
-    newmount->fs_type = FAT32;
+    newmount->fs_type = SKINNY28;
     mount_table[mount_pos] = newmount;
     
     fs_table[newmount->fs_type].init(mount_pos);
@@ -182,11 +198,16 @@ int fileopen(const char *fname, int mode) {
     return npos;
 }
 
-int filegetrevisions(int file) {
+int filegetrevision(int file, int pos) {
+
     if (file > FILE_LIMIT) { return -1; }
     file_t *fp = &(filetable[file]);
     
-    return -1;
+    if (!supports_revisioning(mount_table[fp->device]->fs_type)) {
+        return -1;
+    }
+    
+    return fs_rev_table[mount_table[fp->device]->fs_type].getrevision(file, pos);
 }
 
 int filewrite(int file, const char *buffer, int count) {

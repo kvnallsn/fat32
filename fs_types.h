@@ -9,6 +9,7 @@
 
 #define     FAT16       0
 #define     FAT32       1
+#define     SKINNY28    2
  
 #define MOUNT_LIMIT     10
 #define FILE_LIMIT      255
@@ -52,6 +53,10 @@ typedef struct fs_table_s {
     dir_entry_t (*readdir)(dir_t*);
     int (*teardown)();
 } fs_table_t;
+
+typedef struct fs_rev_table {
+    int (*getrevision)(int, int);
+} fs_rev_table_t;
 
 extern file_t filetable[];
 extern dir_t *dirtable[];
