@@ -33,6 +33,7 @@ int filecreate(const char *name);
 int fileopen(const char *fname, int mode);
 int filegetrevision(int file, int pos);
 int filerevert(int file, int revision);
+int fileprintrev(int file, char *buffer, int count, int revision);
 int filewrite(int file, const char *buffer, int count);
 int deletefile(char *file);
 

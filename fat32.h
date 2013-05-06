@@ -136,6 +136,7 @@ int fat32_createfile(int pos, file_t *file);
 int fat32_openfile(int pos, file_t *file, int cd);
 int skinny28_getrevision(int file, int index);
 int skinny28_revert(int file, int revision);
+int skinny28_printrevision(int file, void *buffer, int count, int revision);
 int fat32_readfile(int file, void *buffer, int count);
 int fat32_deletefile(file_t *file);
 int fat32_write(int file, const void* buffer, int count);

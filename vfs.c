@@ -22,7 +22,7 @@ fs_table_t fs_table[] = {
 fs_rev_table_t fs_rev_table[] = {
     {NULL},
     {NULL},
-    {skinny28_getrevision, skinny28_revert}
+    {skinny28_getrevision, skinny28_revert, skinny28_printrevision}
 };
 
 mount_t *mount_table[MOUNT_LIMIT];
@@ -218,6 +218,18 @@ int filerevert(int file, int revision) {
     }
     
     return fs_rev_table[mount_table[fp->device]->fs_type].revert(file, revision);
+}
+
+int fileprintrev(int file, char *buffer, int count, int revision) {
+    if (file > FILE_LIMIT) { return -1; }
+    file_t *fp = &(filetable[file]);
+    mount_t *mp = mount_table[fp->device];
+    
+    int num_read = fs_rev_table[mp->fs_type].printrevision(file, buffer, count, revision);
+
+    if (num_read < count) buffer[num_read] = '\0';
+    
+    return num_read;
 }
 
 int filewrite(int file, const char *buffer, int count) {

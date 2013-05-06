@@ -191,6 +191,22 @@ void revert(arg_info_t args) {
     fileclose(fp);
 }
 
+void printrev(arg_info_t args) {
+    if (args.argc != 2) {
+        printf("usage: printrev file revision\n");
+        return;
+    }     
+    
+    int fp = fileopen(prepend_path(args.argv[0]), BEGIN);
+    if (fp == -1) { printf("printrev: %s: No Such File or Directory\n", args.argv[0]); return; }
+    int nr = 0;
+    char buffer[512];
+    while ((nr = fileprintrev(fp, buffer, 512, atoi(args.argv[1]))) > 0) {
+        printf("%s", buffer);
+    }
+    fileclose(fp);
+}
+
 int main(int argc, char **argv) {
 
     char *input;
@@ -234,6 +250,8 @@ int main(int argc, char **argv) {
                 revprint(tokenize(input));
             } else if (strcmp(cmd, "revert") == 0) {
                 revert(tokenize(input));
+            } else if (strcmp(cmd, "printrev") == 0) {
+                printrev(tokenize(input));
             } else {
                 printf("%s: Command Not Found\n", input);
             }

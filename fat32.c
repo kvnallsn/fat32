@@ -174,21 +174,21 @@ int insert_revision(int device, fat_t *fat, int pos, int cluster) {
     if (pos > (cluster_size / 4)) { return -1; }
     
     lseek(device, vers_loc, SEEK_SET);
-    printf("Seeking to <<0x%08X>>\n", vers_loc);
+    //printf("Seeking to <<0x%08X>>\n", vers_loc);
     fat_vers_t vers;
     read(device, &vers, sizeof(fat_vers_t));
        
-    printf("In cluster: [%d]\n", cluster);
+    //printf("In cluster: [%d]\n", cluster);
     vers.v3 = vers.v2;
     vers.v2 = vers.v1;
     vers.v1 = vers.vcurr;
     vers.vcurr = cluster;
     
-    printf("Revising...\n\tCurrent: [%d]\n\t     -1: [%d]\n\t     -2: [%d]\n\t     -3: [%d]\n", vers.vcurr, vers.v1, vers.v2, vers.v3);
+    //printf("Revising...\n\tCurrent: [%d]\n\t     -1: [%d]\n\t     -2: [%d]\n\t     -3: [%d]\n", vers.vcurr, vers.v1, vers.v2, vers.v3);
     
     // rewrite the dir cluster
     lseek(device, vers_loc, SEEK_SET);
-    printf("Seeking to <<0x%08X>>\n", vers_loc);
+    //printf("Seeking to <<0x%08X>>\n", vers_loc);
     write(device, &vers, sizeof(fat_vers_t));
     
     return cluster;
@@ -228,6 +228,8 @@ void revert_to_revision(int device, fat_t *fat, int pos, int revision) {
     lseek(device, vers_loc, SEEK_SET);
     write(device, &vers, sizeof(fat_vers_t));    
 }
+
+
 
 /*********** Local Functions ***************/
 
@@ -501,9 +503,9 @@ int fat32_read(int dev, int cluster, int offset, void *buffer, int count) {
     fat_t fat = fat_table[dev];        
     
     int device = open(mount_table[dev]->device_name, O_RDONLY);
-    int rcluster = get_most_recent_cluster(device, &fat, cluster);
+    //int rcluster = get_most_recent_cluster(device, &fat, cluster);
     /* Read count bytes */
-    int fat_data_loc = get_cluster_location(&fat, rcluster);    
+    int fat_data_loc = get_cluster_location(&fat, cluster);    
     lseek(device, fat_data_loc+offset, SEEK_SET);    
     int nr = read(device, buffer, count);
     if (nr < 0) perror("read");
@@ -955,12 +957,50 @@ int skinny28_revert(int file, int revision) {
     return 0;
 }
 
+int skinny28_printrevision(int file, void *buffer, int count, int revision) {
+    file_t *fp = &(filetable[file]);
+    fat_file_t *f = &(fat_file_table[file]);
+    fat_direntry_t *fat_dirent = &(f->dir_ent);
+    fat_t fat = fat_table[fp->device]; 
+    
+    int rev_loc = (fat_dirent->high_clu << 16) | fat_dirent->low_clu;
+    int vers_loc = get_cluster_location(&fat, fat.bs->vers_table_cluster);    
+    int cluster_size = fat.bs->bytes_per_sector * fat.bs->sectors_per_cluster;
+    if (rev_loc > (cluster_size / 4)) { return -1; }
+    
+    int device = open(mount_table[fp->device]->device_name, O_RDWR);
+    lseek(device, vers_loc + (rev_loc * sizeof(fat_vers_t)), SEEK_SET);
+    fat_vers_t vers;
+    read(device, &vers, sizeof(fat_vers_t));
+    close(device);
+        
+    int cluster;
+    switch (revision) {
+        case 3: cluster = vers.v3; break;
+        case 2: cluster = vers.v2; break;
+        case 1: cluster = vers.v1; break;
+        default: cluster = vers.vcurr;
+    }
+    
+    if (fat_dirent->size == 0) { return 0; }
+    int num_to_read = (fp->offset + count > fat_dirent->size) ? fat_dirent->size - fp->offset : count;
+
+    int nr = fat32_read(fp->device, cluster, fp->offset, buffer, num_to_read);
+
+    fp->offset += nr;
+    return nr;
+}
+
 int fat32_readfile(int file, void *buffer, int count) {
     file_t *fp = &(filetable[file]);
     fat_file_t *f = &(fat_file_table[file]);
     fat_direntry_t *fat_dirent = &(f->dir_ent);
+    fat_t fat = fat_table[fp->device]; 
     
-    int cluster = (fat_dirent->high_clu << 16) | fat_dirent->low_clu;
+    int pos = (fat_dirent->high_clu << 16) | fat_dirent->low_clu;
+    int device = open(mount_table[fp->device]->device_name, O_RDONLY);
+    int cluster = get_most_recent_cluster(device, &fat, pos);    
+    close(device);
     
     if (fat_dirent->size == 0) { return 0; }
     int num_to_read = (fp->offset + count > fat_dirent->size) ? fat_dirent->size - fp->offset : count;
