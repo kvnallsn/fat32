@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
 
     /* Temporarily auto mount hello */
     //mount_fs("hello", "/");
-    mount_fs("/dev/sde1", "/");
+    //mount_fs("/dev/sde1", "/");
 
     while (1) {
         printf("> ");
