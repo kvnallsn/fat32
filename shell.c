@@ -98,8 +98,7 @@ void touch(arg_info_t args) {
         return;
     }
     
-    int fp = fileopen(prepend_path(args.argv[0]), APPEND);
-    filewrite(fp, "", 1);
+    int fp = filecreate(prepend_path(args.argv[0]));
     fileclose(fp);
 }
 
@@ -137,11 +136,23 @@ void rm(arg_info_t args) {
     deletefile(args.argv[0]);
 }
 
-void in(arg_info_t args) {
+void echo(arg_info_t args) {
     if (args.argc != 2) {
-        printf("usage: in word file\n");
+        printf("usage: echo word file\n");
         return;
-    } 
+    }     
+    
+    int fp = fileopen(prepend_path(args.argv[1]), BEGIN);
+    if (fp == -1) { printf("Error\n"); }
+    filewrite(fp, args.argv[0], strlen(args.argv[0]));
+    fileclose(fp);    
+}
+
+void echoa(arg_info_t args) {
+    if (args.argc != 2) {
+        printf("usage: echo word file\n");
+        return;
+    }     
     
     int fp = fileopen(prepend_path(args.argv[1]), APPEND);
     if (fp == -1) { printf("Error\n"); }
@@ -184,8 +195,10 @@ int main(int argc, char **argv) {
             
             } else if (strcmp(cmd, "rm") == 0) {
                 rm(tokenize(input));
-            } else if (strcmp(cmd, "in") == 0) {
-                in(tokenize(input));
+            } else if (strcmp(cmd, "echo") == 0) {
+                echo(tokenize(input));
+            } else if (strcmp(cmd, "echoa") == 0) {
+                echoa(tokenize(input));
             } else {
                 printf("%s: Command Not Found\n", input);
             }

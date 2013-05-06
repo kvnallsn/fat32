@@ -14,8 +14,8 @@ dir_t *dirtable[FILE_LIMIT];
 int next_file_pos = 0;
 
 fs_table_t fs_table[] = {
-    {fat32_init, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
-    {fat32_init, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
+    {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
+    {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
 };
 
 mount_t *mount_table[MOUNT_LIMIT];
@@ -160,14 +160,23 @@ void closedir(int dir) {
     if (directory != NULL) free(directory);
 }
 
+int filecreate(const char *name) {
+    int pos = get_next_table_pos(filetable, FILE_LIMIT);
+    init_file(&filetable[pos], name);
+    
+    mount_t *mp = mount_table[filetable[pos].device];
+    fs_table[mp->fs_type].createfile(pos, &filetable[pos]);
+    return 0;
+}
+
 int fileopen(const char *fname, int mode) {
     int pos = get_next_table_pos(filetable, FILE_LIMIT);
     init_file(&filetable[pos], fname);
         
     mount_t *mp = mount_table[filetable[pos].device];
     int npos = fs_table[mp->fs_type].openfile(pos, &filetable[pos], 0);
-    if (npos == -1) close_file(pos);
     
+    if (npos == -1) close_file(pos);    
     if (mode == APPEND) filetable[pos].offset += filetable[pos].size;
     
     return npos;

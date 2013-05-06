@@ -44,6 +44,7 @@ typedef struct dir_entry {
 
 typedef struct fs_table_s {
     int (*init)(int);
+    int (*createfile)(int, file_t*);
     int (*openfile)(int, file_t*, int cd);
     int (*deletefile)(file_t*);
     int (*read)(int,void*,int);
