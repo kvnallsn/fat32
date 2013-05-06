@@ -323,9 +323,9 @@ int find_dir_cluster(fat_t *fat, file_t *file) {
 
     int current_cluster = current_directory;;
     if(file->name[0] == '/') {
-        printf("Starting from root\n");
+        //printf("Starting from root\n");
     } else {
-        printf("Starting from current dir\n");
+        //printf("Starting from current dir\n");
     }
     
     /* Navigate to directory */
@@ -457,7 +457,7 @@ int fat32_writedata(int file, int cluster, const void *buffer, int count) {
             write_fat_table(device, fat, cluster, next_cluster);
             cluster = next_cluster;
             clu_offset = 0;
-            //printf("Next Clu: <<%d>>\n", cluster);
+
         } else {
             write_fat_table(device, fat, cluster, 0x0FFFFFFF);
         }
@@ -560,7 +560,7 @@ int fat32_createfile(int pos, file_t *file) {
     
     // Look through dir table
     fat_t *fat = &(fat_table[file->device]);
-    int cluster = ((fat_extBS_32_t*)fat->bs->extended_section)->root_cluster;
+    int cluster = current_directory; 
     int cluster_size = fat->bs->bytes_per_sector * fat->bs->sectors_per_cluster;
     int device = open(mount_table[file->device]->device_name, O_RDWR    );   
     int dir_pos = -1;
