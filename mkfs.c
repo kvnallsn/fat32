@@ -223,9 +223,9 @@ int main(int argc, char **argv) {
     ext->volume_label[6] = 'N'; ext->volume_label[7] = 'N'; ext->volume_label[8] = 'U';
     ext->volume_label[9] = ' '; ext->volume_label[10] = ' ';
     
-    ext->fat_type_label[0] = 'F'; ext->fat_type_label[1] = 'A'; ext->fat_type_label[2] = 'T';
-    ext->fat_type_label[3] = '3'; ext->fat_type_label[4] = '2'; ext->fat_type_label[5] = ' ';
-    ext->fat_type_label[6] = ' '; ext->fat_type_label[7] = ' ';
+    ext->fat_type_label[0] = 'S'; ext->fat_type_label[1] = 'K'; ext->fat_type_label[2] = 'I';
+    ext->fat_type_label[3] = 'N'; ext->fat_type_label[4] = 'N'; ext->fat_type_label[5] = 'Y';
+    ext->fat_type_label[6] = '2'; ext->fat_type_label[7] = '8';
     
     write_bs_to_file(opts.device, 0, boot_sector);
     write_bs_to_file(opts.device, ext->backup_BS_sector * boot_sector->bytes_per_sector, boot_sector);
