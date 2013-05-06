@@ -20,6 +20,7 @@ typedef struct arg_info_s {
 } arg_info_t;
 
 static char *current_dir = "/";
+static int is_mount = 0;
 
 arg_info_t tokenize(char *input) {
     int num_cmds = 2;
@@ -68,6 +69,7 @@ void mount(arg_info_t args) {
     char *path = args.argv[args.argc - 1];
     
     mount_fs(device_name, path);
+    is_mount = 1;
 }
 
 void umount(arg_info_t args) {
@@ -76,13 +78,14 @@ void umount(arg_info_t args) {
         return;
     }
     unmount_fs(args.argv[0]);
+    is_mount = 0;
 }
 
 void ls(arg_info_t args) {
     if (args.argc != 0) {
         printf("usage: ls\n");
         return;
-    }
+    } 
     int dir = opendir("/"); 
     dir_entry_t file;
     while ((file = readdir(dir)).name != NULL) {
@@ -183,24 +186,28 @@ int main(int argc, char **argv) {
                 mount(tokenize(input));
             } else if(strcmp(cmd, "umount") == 0) {
                 umount(tokenize(input));
-            } else if (strcmp(cmd, "ls") == 0) {
-                ls(tokenize(input));
-            } else if (strcmp(cmd, "touch") == 0) {
-                touch(tokenize(input));
-            } else if (strcmp(cmd, "cat") == 0) {
-                cat(tokenize(input));
-            } else if (strcmp(cmd, "cd") == 0) {
-                cd(tokenize(input));
-            } else if (strcmp(cmd, "pwd") == 0) {
-            
-            } else if (strcmp(cmd, "rm") == 0) {
-                rm(tokenize(input));
-            } else if (strcmp(cmd, "echo") == 0) {
-                echo(tokenize(input));
-            } else if (strcmp(cmd, "echoa") == 0) {
-                echoa(tokenize(input));
+            } else if (is_mount == 1) {
+                if (strcmp(cmd, "ls") == 0) {
+                    ls(tokenize(input));
+                } else if (strcmp(cmd, "touch") == 0) {
+                    touch(tokenize(input));
+                } else if (strcmp(cmd, "cat") == 0) {
+                    cat(tokenize(input));
+                } else if (strcmp(cmd, "cd") == 0) {
+                    cd(tokenize(input));
+                } else if (strcmp(cmd, "pwd") == 0) {
+                
+                } else if (strcmp(cmd, "rm") == 0) {
+                    rm(tokenize(input));
+                } else if (strcmp(cmd, "echo") == 0) {
+                    echo(tokenize(input));
+                } else if (strcmp(cmd, "echoa") == 0) {
+                    echoa(tokenize(input));
+                } else {
+                    printf("%s: Command Not Found\n", input);
+                }
             } else {
-                printf("%s: Command Not Found\n", input);
+                printf("No File Systems Mounted!\n");
             }
         }
         
