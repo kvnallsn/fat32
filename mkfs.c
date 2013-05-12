@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
     boot_sector->sectors_per_cluster = opts.clusters;
     boot_sector->reserved_sector_count = 32;
     boot_sector->table_count = 2;
-    boot_sector->root_entry_count = 0;
+    boot_sector->root_entry_count = 3;
     boot_sector->total_sectors_16 = 0;      /* 0 -- See Total_Sectors_32 */
     boot_sector->media_type = 0xF8;
     boot_sector->table_size_16 = 0;         /* 0 for Fat32 */
