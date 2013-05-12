@@ -1,5 +1,5 @@
 #
-# Created by makemake (Darwin Dec  1 2012) on Tue Apr 16 22:35:51 2013
+# Created by makemake (Darwin Dec  1 2012) on Sun May 12 13:09:54 2013
 #
 
 #
@@ -29,7 +29,7 @@
 		$(AR) $(ARFLAGS) $@ $%
 		$(RM) $%
 
-CC =		clang
+CC =		gcc
 CXX =		g++
 
 RM = rm -f
@@ -40,22 +40,21 @@ COMPILE.c = $(CC) $(CFLAGS) $(CPPFLAGS) -c
 COMPILE.cc = $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 
 ########## Default flags (redefine these with a header.mak file if desired)
-CXXFLAGS =	-ggdb -Wall -ansi -pedantic 
-#CFLAGS =	-ggdb -Wall -ansi -pedantic --std=c99
-CFLAGS =	-ggdb -Wall -pedantic --std=c99
+CXXFLAGS =	-ggdb -Wall -ansi -pedantic --std=c99
+CFLAGS =	-ggdb -Wall -ansi -pedantic --std=c99
 BINDIR =.
-CLIBFLAGS =	
+CLIBFLAGS =	-lm
 CCLIBFLAGS =	
 ########## End of default flags
 
 
 CPP_FILES =	
-C_FILES =	fat32.c vfs.c mkfs.c shell.c
+C_FILES =	fat32.c fat_common.c mkfs.c shell.c skinny28.c vfs.c
 S_FILES =	
-H_FILES =	fat32.h vfs.h
+H_FILES =	fat32.h fat_common.h fs_types.h skinny28.h vfs.h
 SOURCEFILES =	$(H_FILES) $(CPP_FILES) $(C_FILES) $(S_FILES)
 .PRECIOUS:	$(SOURCEFILES)
-OBJFILES =	fat32.o vfs.o 
+OBJFILES =	fat32.o fat_common.o skinny28.o vfs.o 
 
 #
 # Main targets
@@ -75,10 +74,12 @@ ${BINDIR}/shell:	shell.o $(OBJFILES)
 # Dependencies
 #
 
-fat32.o:	fat32.h
-vfs.o:	fat32.h vfs.h
-mkfs.o:	fat32.h
-shell.o:	fat32.h
+fat32.o:	fat32.h fat_common.h fs_types.h
+fat_common.o:	fat_common.h
+mkfs.o:	fat_common.h fs_types.h skinny28.h
+shell.o:	fat32.h fat_common.h fs_types.h skinny28.h vfs.h
+skinny28.o:	fat_common.h fs_types.h skinny28.h
+vfs.o:	fat32.h fat_common.h fs_types.h skinny28.h vfs.h
 
 #
 # Housekeeping

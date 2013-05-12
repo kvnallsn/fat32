@@ -37,7 +37,7 @@ typedef struct dir_info {
 typedef struct dir_entry {
     char    *name;
     int     time;
-    // Offset is # of 32-bit entries from the start of the cluster
+    /* Offset is # of 32-bit entries from the start of the cluster */
     int     offset; 
     int     dir;
     void    *misc;
@@ -45,7 +45,7 @@ typedef struct dir_entry {
 
 typedef struct fs_table_s {
     int (*init)(int);
-    int (*createfile)(int, file_t*);
+    int (*createfile)(int, file_t*, int dir);
     int (*openfile)(int, file_t*, int cd);
     int (*deletefile)(file_t*);
     int (*read)(int,void*,int);
@@ -59,6 +59,11 @@ typedef struct fs_rev_table {
     int (*revert)(int, int);
     int (*printrevision)(int, void*, int, int);
 } fs_rev_table_t;
+
+typedef struct DskSiztoSecPerClus {
+    int            DiskSize;
+    char           SecPerClusVal;
+} DskSiztoSecPerClus_t;
 
 extern file_t filetable[];
 extern dir_t *dirtable[];

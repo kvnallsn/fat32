@@ -16,12 +16,13 @@
 #include <string.h>
 
 #include "fs_types.h"
+#include "skinny28.h"
 #include "fat32.h"
 
 #define BEGIN       0
 #define APPEND      1
 
-void mount_fs(const char *device_name, const char *path);
+void mount_fs(const char *device_name, const char *path, int type);
 void unmount_fs(const char *mount_point);
 
 int opendir(const char *path);
@@ -29,7 +30,7 @@ dir_entry_t readdir(int dir);
 void changedir(char *dirname);
 void closedir(int dir);
 
-int filecreate(const char *name);
+int filecreate(const char *name, int dir);
 int fileopen(const char *fname, int mode);
 int filegetrevision(int file, int pos);
 int filerevert(int file, int revision);

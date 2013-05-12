@@ -16,7 +16,7 @@ int next_file_pos = 0;
 fs_table_t fs_table[] = {
     {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
     {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown},
-    {fat32_init, fat32_createfile, fat32_openfile, fat32_deletefile, fat32_readfile, fat32_write, fat32_readdir, fat32_teardown}
+    {skinny28_init, skinny28_createfile, skinny28_openfile, skinny28_deletefile, skinny28_readfile, skinny28_write, skinny28_readdir, skinny28_teardown}
 };
 
 fs_rev_table_t fs_rev_table[] = {
@@ -36,7 +36,7 @@ int supports_revisioning(int fstype) {
     }
 }
 
-void mount_fs(const char *device_name, const char *path) {
+void mount_fs(const char *device_name, const char *path, int type) {
     int mount_pos;
     for (mount_pos = 0; mount_pos < MOUNT_LIMIT; mount_pos++) {
         if (mount_table[mount_pos] == NULL) { break; }
@@ -48,7 +48,8 @@ void mount_fs(const char *device_name, const char *path) {
     strncpy(newmount->device_name, device_name, strlen(device_name));
     newmount->path = calloc(strlen(path)+1, sizeof(char));
     strncpy(newmount->path, path, strlen(path));
-    newmount->fs_type = SKINNY28;
+    
+    newmount->fs_type = type;
     mount_table[mount_pos] = newmount;
     
     fs_table[newmount->fs_type].init(mount_pos);
@@ -176,12 +177,12 @@ void closedir(int dir) {
     if (directory != NULL) free(directory);
 }
 
-int filecreate(const char *name) {
+int filecreate(const char *name, int dir) {
     int pos = get_next_table_pos(filetable, FILE_LIMIT);
     init_file(&filetable[pos], name);
     
     mount_t *mp = mount_table[filetable[pos].device];
-    fs_table[mp->fs_type].createfile(pos, &filetable[pos]);
+    fs_table[mp->fs_type].createfile(pos, &filetable[pos], dir);
     return 0;
 }
 
