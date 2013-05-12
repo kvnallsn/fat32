@@ -289,6 +289,8 @@ int main(int argc, char **argv) {
                 revert(tokenize(exec));
             } else if (strcmp(cmd, "printrev") == 0) {
                 printrev(tokenize(exec));
+            } else if (strcmp(cmd, "help") == 0) {
+                printf("Available Commands:\nmount\numount\nls\ntouch\nmkdir\ncat\ncd\nrm\necho\nechoa\nrevs\nrevert\nprintrev\n");
             } else {
                 printf("%s: Command Not Found\n", input);
             }
